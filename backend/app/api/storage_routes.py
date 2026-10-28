@@ -3,7 +3,7 @@ CloudGuardAI - Storage & Template Upload REST API Endpoints
 Provides authenticated upload, direct-to-S3 presigned URLs, retrieval, and status checking.
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Response
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Response, Request
 from fastapi.responses import StreamingResponse
 import io
 from typing import Optional
@@ -14,20 +14,35 @@ router = APIRouter(prefix="/api/v1/storage", tags=["Storage & Ingestion"])
 
 @router.post("/upload-url")
 async def get_direct_upload_url(
-    filename: str = Form(...),
+    request: Request,
+    filename: Optional[str] = Form(default=None),
     analysis_id: Optional[str] = Form(default=None),
-    expires_in: int = Form(default=900)
+    expires_in: Optional[int] = Form(default=None)
 ):
     """
     Generates a presigned direct upload URL (S3 PUT or Local fallback).
-    Enables clients to upload large blueprints directly to S3 without sending
-    large file payloads through API Gateway (bypassing the 10 MB payload limit).
+    Accepts both Form data and JSON payloads to ensure maximum client compatibility.
+    Bypasses API Gateway's 10 MB payload limit for large blueprint uploads.
     """
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                filename = body.get("filename", filename)
+                analysis_id = body.get("analysis_id", analysis_id)
+                expires_in = body.get("expires_in", expires_in)
+        except Exception:
+            pass
+
+    if not filename:
+        raise HTTPException(status_code=400, detail="Missing required parameter: 'filename'.")
+
     try:
         url_data = storage_manager.generate_upload_url(
             filename=filename,
             analysis_id=analysis_id,
-            expiration_seconds=expires_in
+            expiration_seconds=expires_in or 900
         )
         return {
             "success": True,
