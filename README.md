@@ -173,7 +173,52 @@ Live AWS tests require active temporary or permanent AWS credentials and are cle
 
 ---
 
-## 7. Cloud Deployment Runbook (AWS SAM / CloudFormation)
+## 7. Cloud Deployment Runbook
+
+### A. Render Cloud Web Service Deployment (1-Click Blueprint)
+
+CloudGuardAI includes native configuration for zero-downtime deployment on [Render](https://render.com) using a single consolidated web service architecture that serves both the FastAPI REST API and the coastal UI frontend from a unified origin.
+
+#### 1. Configuration Files Included
+- **`render.yaml`**: Infrastructure-as-code Blueprint defining the service, Python runtime, build command, dynamic port binding, healthcheck endpoint, and environment variables.
+- **`Dockerfile`**: Hardened container specification with dynamic `$PORT` support and health checks.
+
+#### 2. Deploy via Render Blueprint (Recommended)
+1. Push this repository to your GitHub or GitLab account:
+   ```bash
+   git remote add origin https://github.com/<your-username>/cloudguardai.git
+   git push -u origin main
+   ```
+2. Log in to [Render Dashboard](https://dashboard.render.com).
+3. Click **New +** -> **Blueprint**.
+4. Connect your `cloudguardai` repository. Render automatically reads `render.yaml` and configures:
+   - **Service Name**: `cloudguardai`
+   - **Runtime**: Python 3.11
+   - **Build Command**: `pip install --upgrade pip && pip install -r requirements.txt`
+   - **Start Command**: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+   - **Health Check Path**: `/api/v1/health`
+5. *(Optional AWS Connection)*: In the Environment Variables settings, add your AWS credentials if you wish to connect real AWS S3/DynamoDB storage:
+   - `AWS_ACCESS_KEY_ID`: `<your-key>`
+   - `AWS_SECRET_ACCESS_KEY`: `<your-secret>`
+   - `AWS_SESSION_TOKEN`: `<session-token-if-temporary>`
+   - `S3_BUCKET_NAME`: `<your-private-s3-bucket>`
+   *(If omitted, CloudGuardAI seamlessly defaults to internal local storage and SQLite persistence).*
+6. Click **Apply**. Render will build and deploy the application.
+7. Your live public URL will be generated: `https://cloudguardai.onrender.com` (or your chosen service slug).
+
+#### 3. Live Endpoint Verification on Render
+Once deployed, probe the live deployment:
+```bash
+# Verify Health & AWS Boundary Detection
+curl https://<your-service>.onrender.com/api/v1/health
+
+# Verify Web UI
+curl -I https://<your-service>.onrender.com/
+```
+
+---
+
+### B. AWS Serverless Deployment (SAM / CloudFormation)
 
 > [!IMPORTANT]
 > **Zero Unapproved Deployment Policy**:
