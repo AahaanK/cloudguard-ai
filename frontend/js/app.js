@@ -121,9 +121,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const healthRes = await fetch("/api/v1/health");
       if (healthRes.ok) {
         const h = await healthRes.json();
-        if (h.aws && h.aws.authenticated) {
-          awsHeaderStatus.textContent = h.aws.is_lab_role ? "AWS Connected (LabRole)" : "AWS Connected";
+        const aws = h.aws || {};
+        if (aws.authenticated) {
+          awsHeaderStatus.textContent = aws.is_lab_role ? "AWS Connected (LabRole)" : "AWS Connected";
           awsHeaderStatus.style.color = "var(--color-primary)";
+        } else if (aws.status === "EXPIRED_CREDENTIALS") {
+          awsHeaderStatus.textContent = "AWS Session Expired";
+          awsHeaderStatus.style.color = "var(--color-critical)";
+        } else if (aws.status === "MISSING_SESSION_TOKEN") {
+          awsHeaderStatus.textContent = "AWS Token Missing";
+          awsHeaderStatus.style.color = "var(--color-critical)";
         } else {
           awsHeaderStatus.textContent = "Local Resilient Storage Active";
           awsHeaderStatus.style.color = "var(--color-text-muted)";
@@ -512,30 +519,112 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- LIVE AWS AUDIT ---
-  async function refreshLiveIdentity() {
+  async function refreshLiveIdentity(force = false) {
     try {
-      const res = await fetch("/api/v1/health");
-      const data = await res.json();
-      const aws = data.aws || {};
+      const endpoint = force ? "/api/v1/aws/status?refresh=true" : "/api/v1/aws/status";
+      const res = await fetch(endpoint);
+      const aws = await res.json();
 
       if (aws.authenticated) {
         liveAwsIdentityDetails.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="badge" style="background: rgba(40,127,163,0.12); color: var(--color-primary); border: 1px solid var(--color-primary); padding: 2px 8px; border-radius: 3px; font-weight: 600;">CONFIGURED & VERIFIED</span>
+            <span style="color: var(--color-text-muted); font-size: 12px;">Provider: <strong>${aws.provider_type || 'AWS SDK'}</strong></span>
+          </div>
           <div><strong>Authenticated Caller ARN:</strong> <code>${aws.arn}</code></div>
           <div><strong>Account ID:</strong> <code>${aws.account_id}</code> | <strong>Region:</strong> <code>${aws.region}</code></div>
           <div><strong>Permission Mode:</strong> ${aws.is_lab_role ? "AWS Academy Learner Lab (LabRole active)" : "Standard IAM User / Role"}</div>
           <p style="margin-top: 8px; color: var(--color-text-muted);">CloudGuardAI performs strictly read-only Describe / List operations without creating or modifying AWS resources.</p>
         `;
         triggerLiveAuditBtn.disabled = false;
+      } else if (aws.status === "EXPIRED_CREDENTIALS") {
+        liveAwsIdentityDetails.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="badge" style="background: rgba(184,51,42,0.12); color: var(--color-critical); border: 1px solid var(--color-critical); padding: 2px 8px; border-radius: 3px; font-weight: 600;">CREDENTIALS EXPIRED</span>
+            <span style="color: var(--color-critical); font-size: 12px;">${aws.error_code}</span>
+          </div>
+          <div style="color: var(--color-critical); font-weight: 600; margin-bottom: 4px;">AWS Academy Learner Lab Session Has Expired</div>
+          <p style="margin-top: 4px; color: var(--color-text-main); font-size: 13px;">${aws.actionable_guidance}</p>
+          <div style="background: #202A30; color: #F3F1EB; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-top: 8px; overflow-x: auto;">
+            # Copy new credentials from AWS Details modal into your server terminal:<br>
+            $env:AWS_ACCESS_KEY_ID="&lt;your-access-key-id&gt;"<br>
+            $env:AWS_SECRET_ACCESS_KEY="&lt;your-secret-access-key&gt;"<br>
+            $env:AWS_SESSION_TOKEN="&lt;your-session-token&gt;"<br>
+            $env:AWS_DEFAULT_REGION="us-east-1"
+          </div>
+        `;
+        triggerLiveAuditBtn.disabled = true;
+      } else if (aws.status === "MISSING_SESSION_TOKEN") {
+        liveAwsIdentityDetails.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="badge" style="background: rgba(184,51,42,0.12); color: var(--color-critical); border: 1px solid var(--color-critical); padding: 2px 8px; border-radius: 3px; font-weight: 600;">SESSION TOKEN REQUIRED</span>
+          </div>
+          <div style="color: var(--color-critical); font-weight: 600; margin-bottom: 4px;">Temporary AWS Credentials Detected Without Session Token</div>
+          <p style="margin-top: 4px; color: var(--color-text-main); font-size: 13px;">${aws.actionable_guidance}</p>
+          <div style="background: #202A30; color: #F3F1EB; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-top: 8px; overflow-x: auto;">
+            $env:AWS_SESSION_TOKEN="&lt;paste-session-token-from-aws-details&gt;"
+          </div>
+        `;
+        triggerLiveAuditBtn.disabled = true;
+      } else if (aws.status === "PERMISSION_DENIED") {
+        liveAwsIdentityDetails.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="badge" style="background: rgba(184,51,42,0.12); color: var(--color-critical); border: 1px solid var(--color-critical); padding: 2px 8px; border-radius: 3px; font-weight: 600;">PERMISSION DENIED</span>
+          </div>
+          <div style="color: var(--color-critical); font-weight: 600; margin-bottom: 4px;">STS GetCallerIdentity Denied</div>
+          <p style="margin-top: 4px; color: var(--color-text-main); font-size: 13px;">${aws.actionable_guidance}</p>
+        `;
+        triggerLiveAuditBtn.disabled = true;
+      } else if (aws.status === "CONNECTION_ERROR") {
+        liveAwsIdentityDetails.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="badge" style="background: rgba(220,201,168,0.3); color: #735930; border: 1px solid #DCC9A8; padding: 2px 8px; border-radius: 3px; font-weight: 600;">ENDPOINT UNREACHABLE</span>
+          </div>
+          <div style="color: var(--color-text-main); font-weight: 600; margin-bottom: 4px;">AWS STS Endpoint Connectivity Error</div>
+          <p style="margin-top: 4px; color: var(--color-text-main); font-size: 13px;">${aws.actionable_guidance}</p>
+        `;
+        triggerLiveAuditBtn.disabled = true;
       } else {
         liveAwsIdentityDetails.innerHTML = `
-          <div style="color: var(--color-critical);"><strong>No AWS Credentials Configured</strong></div>
-          <p style="margin-top: 6px; color: var(--color-text-muted);">To scan live AWS resources, set session environment variables (<code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code>) in your server terminal.</p>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="badge" style="background: rgba(32,42,48,0.08); color: var(--color-text-muted); border: 1px solid var(--color-border); padding: 2px 8px; border-radius: 3px; font-weight: 600;">NO CREDENTIALS DETECTED</span>
+          </div>
+          <div style="color: var(--color-text-main); font-weight: 600; margin-bottom: 4px;">Local Resilient Mode Active</div>
+          <p style="margin-top: 4px; color: var(--color-text-muted); font-size: 13px;">${aws.actionable_guidance}</p>
+          <div style="background: #202A30; color: #F3F1EB; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-top: 8px; overflow-x: auto;">
+            # Option A: In the PowerShell terminal running CloudGuardAI:<br>
+            $env:AWS_ACCESS_KEY_ID="&lt;your-key&gt;"<br>
+            $env:AWS_SECRET_ACCESS_KEY="&lt;your-secret&gt;"<br>
+            $env:AWS_SESSION_TOKEN="&lt;session-token-if-temporary-lab&gt;"<br>
+            $env:AWS_DEFAULT_REGION="us-east-1"<br><br>
+            # Option B: Or create a .env file in the project folder with these variables.<br>
+            # Then click 'Refresh Credentials' below without restarting the server.
+          </div>
         `;
         triggerLiveAuditBtn.disabled = true;
       }
     } catch (e) {
       liveAwsIdentityDetails.textContent = "Failed to query STS identity.";
     }
+  }
+
+  // Refresh Credentials Button
+  const refreshAwsCredentialsBtn = document.getElementById("refreshAwsCredentialsBtn");
+  if (refreshAwsCredentialsBtn) {
+    refreshAwsCredentialsBtn.addEventListener("click", async () => {
+      refreshAwsCredentialsBtn.disabled = true;
+      refreshAwsCredentialsBtn.textContent = "Checking...";
+      try {
+        await fetch("/api/v1/aws/refresh", { method: "POST" });
+        await refreshLiveIdentity(true);
+        await loadHealthAndMetrics();
+      } catch (e) {
+        console.error("Failed to refresh AWS credentials", e);
+      } finally {
+        refreshAwsCredentialsBtn.disabled = false;
+        refreshAwsCredentialsBtn.textContent = "Refresh Credentials";
+      }
+    });
   }
 
   triggerLiveAuditBtn.addEventListener("click", async () => {

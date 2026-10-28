@@ -16,6 +16,30 @@ def mask_secret(value: Optional[str], show_prefix: int = 4, show_suffix: int = 4
         return "***"
     return f"{cleaned[:show_prefix]}...{cleaned[-show_suffix:]} (len: {len(cleaned)})"
 
+def load_dotenv_file(filepath: Optional[str] = None, override: bool = False):
+    """Safely loads key-value pairs from a local .env file into os.environ."""
+    candidates = [filepath] if filepath else [
+        ".env",
+        os.path.join(os.path.dirname(__file__), "..", "..", ".env"),
+        os.path.join(os.getcwd(), ".env")
+    ]
+    for cand in candidates:
+        if cand and os.path.exists(cand):
+            try:
+                with open(cand, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if (override or k not in os.environ) and v:
+                            os.environ[k] = v
+                break
+            except Exception:
+                pass
+
 class AWSConfig(BaseModel):
     region: str = Field(default="us-east-1", description="Target AWS Region")
     access_key_id: Optional[str] = Field(default=None, description="AWS Access Key ID")
@@ -89,7 +113,9 @@ class AppConfig(BaseModel):
         }
 
 def load_config() -> AppConfig:
-    """Loads and validates configuration from environment variables."""
+    """Loads and validates configuration from environment variables and optional .env file."""
+    load_dotenv_file()
+
     # Read AWS env vars
     aws_cfg = AWSConfig(
         region=os.getenv("AWS_DEFAULT_REGION", os.getenv("AWS_REGION", "us-east-1")),
@@ -124,6 +150,13 @@ def load_config() -> AppConfig:
         storage_local_dir=os.getenv("STORAGE_LOCAL_DIR", "./storage"),
         aws=aws_cfg
     )
+
+def refresh_config() -> AppConfig:
+    """Refreshes the global settings singleton dynamically."""
+    global settings
+    load_dotenv_file(override=True)
+    settings = load_config()
+    return settings
 
 # Global singleton
 settings = load_config()

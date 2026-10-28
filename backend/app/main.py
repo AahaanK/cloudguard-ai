@@ -46,14 +46,26 @@ async def health_check():
         "storage_backend": settings.storage_backend,
         "database_backend": settings.database_backend,
         "remediation_backend": settings.remediation_backend,
-        "aws": {
-            "authenticated": aws_status["authenticated"],
-            "region": settings.aws.region,
-            "account_id": aws_status.get("account_id"),
-            "arn": aws_status.get("arn"),
-            "is_lab_role": aws_status.get("is_lab_role", False)
-        }
+        "aws": aws_status
     }
+
+@app.get("/api/v1/aws/status", tags=["AWS Credential Diagnostics"])
+@app.get("/api/aws/status", tags=["AWS Credential Diagnostics"])
+async def get_aws_status(refresh: bool = False):
+    """
+    Returns sanitized AWS credential and identity diagnostics.
+    Never exposes secret access keys or raw session tokens.
+    """
+    return aws_session_manager.verify_identity(force_refresh=refresh)
+
+@app.post("/api/v1/aws/refresh", tags=["AWS Credential Diagnostics"])
+@app.post("/api/aws/refresh", tags=["AWS Credential Diagnostics"])
+async def refresh_aws_credentials():
+    """
+    Reloads .env file and environment variables, flushes cached Boto3 session,
+    and re-verifies STS caller identity dynamically without server restarts.
+    """
+    return aws_session_manager.reset_session()
 
 # Frontend Static Files Mount
 frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))

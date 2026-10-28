@@ -34,10 +34,9 @@ class LiveAWSScanner:
         """
         identity = aws_session_manager.verify_identity()
         if not identity["authenticated"]:
-            raise RuntimeError(
-                "Live AWS scan cannot proceed: No AWS credentials detected. "
-                "Provide temporary credentials via environment variables ($env:AWS_ACCESS_KEY_ID)."
-            )
+            err_msg = identity.get("message", "No AWS credentials detected.")
+            guidance = identity.get("actionable_guidance", "Provide credentials via environment variables ($env:AWS_ACCESS_KEY_ID).")
+            raise RuntimeError(f"Live AWS scan cannot proceed: {err_msg} {guidance}")
 
         account_id = identity.get("account_id", "Unknown-Account")
         is_lab_role = identity.get("is_lab_role", False)
