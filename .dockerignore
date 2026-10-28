@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.git
+.gitignore
+tests/
+aws_permissions/
+scripts/
+.env*
+storage/*.db
+storage/uploads/
+storage/reports/

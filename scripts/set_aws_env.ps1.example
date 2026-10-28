@@ -1,0 +1,11 @@
+# CloudGuardAI - AWS Academy Learner Lab Environment Variables Setup (Example)
+# DO NOT COMMIT ACTUAL SECRETS TO GIT OR CHAT.
+# Copy this file to a private location or paste the commands directly into your PowerShell terminal:
+
+# $env:AWS_ACCESS_KEY_ID = "ASIA..."
+# $env:AWS_SECRET_ACCESS_KEY = "..."
+# $env:AWS_SESSION_TOKEN = "..."
+# $env:AWS_DEFAULT_REGION = "us-east-1"
+
+# To verify your credentials safely without exposing secrets:
+# python scripts/check_aws_env.py

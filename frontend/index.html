@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudGuardAI — Enterprise Cloud Security Platform</title>
+  <link rel="stylesheet" href="/static/css/coastal.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="top-nav">
+    <div class="brand-section">
+      <div class="brand-title">CloudGuardAI</div>
+      <div class="brand-subtitle">Cloud Architecture Risk Analyzer</div>
+    </div>
+    <nav class="nav-links">
+      <button type="button" class="nav-item active" data-view="view-upload">Blueprint Ingestion</button>
+      <button type="button" class="nav-item" data-view="view-dashboard">Risk Assessment</button>
+      <button type="button" class="nav-item" data-view="view-findings">Findings & Remediation</button>
+      <button type="button" class="nav-item" data-view="view-live">Live AWS Audit</button>
+      <button type="button" class="nav-item" data-view="view-history">Audit History & Reports</button>
+    </nav>
+    <div class="header-status-badge" id="awsHeaderStatus">Checking AWS status...</div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Global Top Metrics Bar -->
+    <section class="metrics-grid" id="metricsSummaryBar">
+      <div class="metric-tile">
+        <div class="metric-label">Evaluated Architectures</div>
+        <div class="metric-value" id="metricTotalScans">0</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-label">Average Risk Score</div>
+        <div class="metric-value" id="metricAvgScore">0.0</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-label">Open Critical Risks</div>
+        <div class="metric-value" id="metricTotalCritical" style="color: var(--color-critical);">0</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-label">High Severity Items</div>
+        <div class="metric-value" id="metricTotalHigh" style="color: var(--color-high);">0</div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 1: BLUEPRINT INGESTION ==================== -->
+    <section id="view-upload" class="view-section active">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Infrastructure Blueprint Upload</h1>
+          <p class="page-desc">Upload Terraform or CloudFormation configurations to execute pre-deployment risk analysis.</p>
+        </div>
+      </div>
+
+      <!-- Storage Health Status Box -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Storage & Integration Engine</span>
+          <button id="refreshStatusBtn" class="btn btn-secondary" style="padding: 3px 8px; font-size: 12px;">Check Storage</button>
+        </div>
+        <div class="card-body">
+          <div id="storageStatusText" style="font-size: 13px; color: var(--color-text-muted);">
+            Connecting to storage backend...
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Zone Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Ingest & Evaluate Blueprint</span>
+          <span style="font-size: 12px; color: var(--color-text-muted);">Supported: .tf, .tf.json, .yaml, .yml, .json (Max 10 MB)</span>
+        </div>
+        <div class="card-body">
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-label">Drag and drop infrastructure template here</div>
+            <div class="dropzone-subtext">or click to browse local files</div>
+            <input type="file" id="fileInput" accept=".tf,.json,.yaml,.yml" style="display: none;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">Select Blueprint File</button>
+          </div>
+
+          <div class="selected-file-pane" id="selectedFilePane" style="display: none; margin-top: 14px; padding: 12px; border: 1px solid var(--color-border); background: #FAF9F6; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong id="selectedFileName">main.tf</strong>
+              <span id="selectedFileSize" style="color: var(--color-text-muted); font-size: 12px; margin-left: 8px;">(0 KB)</span>
+            </div>
+            <button type="button" class="btn btn-primary" id="analyzeBtn">Analyze Architecture</button>
+          </div>
+
+          <!-- Upload & Evaluation Progress Bar -->
+          <div id="progressContainer" style="display: none; margin-top: 14px;">
+            <div style="height: 6px; width: 100%; background: #E2DDD5; border-radius: 2px; overflow: hidden;">
+              <div id="progressBar" style="height: 100%; width: 0%; background: var(--color-primary); transition: width 0.2s ease;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+              <span id="progressText">Uploading and evaluating rules...</span>
+              <span id="progressPercent">0%</span>
+            </div>
+          </div>
+
+          <div class="status-box" id="uploadStatusBox"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: RISK ASSESSMENT DASHBOARD ==================== -->
+    <section id="view-dashboard" class="view-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Risk Assessment Dashboard</h1>
+          <p class="page-desc" id="dashTargetSubtitle">Target: None selected (Upload a blueprint or choose from history)</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <a href="#" id="dashExportMdBtn" class="btn btn-secondary" target="_blank">Export Markdown</a>
+          <a href="#" id="dashExportJsonBtn" class="btn btn-secondary" target="_blank">Export JSON</a>
+          <a href="#" id="dashExportHtmlBtn" class="btn btn-primary" target="_blank">Printable Audit Report</a>
+          <button type="button" id="dashPresignedS3Btn" class="btn btn-secondary">Presigned S3 Link</button>
+        </div>
+      </div>
+
+      <!-- Unsupported Constructs Warning Notice -->
+      <div id="dashUnsupportedBox" class="status-box info" style="margin-bottom: 18px; display: none;"></div>
+
+      <div class="assessment-grid">
+        <!-- Left: Overall Score Card -->
+        <div class="score-panel">
+          <div class="score-number" id="dashOverallScore">--</div>
+          <div class="score-grade" id="dashGradeBadge">Grade --</div>
+          <div class="score-label">Architecture Risk Score (0-100)</div>
+          
+          <div style="margin-top: 20px; font-size: 12px; color: var(--color-text-muted); text-align: left; border-top: 1px solid var(--color-border); padding-top: 14px;">
+            <div><strong>Scan ID:</strong> <span id="dashScanId">None</span></div>
+            <div style="margin-top: 4px;"><strong>Target:</strong> <span id="dashTargetName">None</span></div>
+            <div style="margin-top: 4px;"><strong>Storage:</strong> <span id="dashStorageType">None</span></div>
+          </div>
+        </div>
+
+        <!-- Right: 7-Dimension Breakdown Card -->
+        <div class="card" style="margin-bottom: 0;">
+          <div class="card-header">
+            <span class="card-title">Well-Architected Dimension Subtotals</span>
+            <span style="font-size: 12px; color: var(--color-text-muted);">Weighted risk point allocation</span>
+          </div>
+          <div class="card-body">
+            <div id="dimensionBarsContainer">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Severity Distribution Bar -->
+      <div class="severity-row" style="margin-top: 20px;">
+        <div class="severity-card critical">
+          <strong id="dashCountCritical" style="font-size: 20px; display: block;">0</strong>
+          Critical Severity
+        </div>
+        <div class="severity-card high">
+          <strong id="dashCountHigh" style="font-size: 20px; display: block;">0</strong>
+          High Severity
+        </div>
+        <div class="severity-card medium">
+          <strong id="dashCountMedium" style="font-size: 20px; display: block;">0</strong>
+          Medium Severity
+        </div>
+        <div class="severity-card low">
+          <strong id="dashCountLow" style="font-size: 20px; display: block;">0</strong>
+          Low Severity
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: FINDINGS & REMEDIATION ==================== -->
+    <section id="view-findings" class="view-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Findings & Remediation Panel</h1>
+          <p class="page-desc">Comprehensive list of security breaches, configuration flaws, and compliance risks.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Security & Configuration Findings</span>
+          <span id="findingsCountBadge" style="font-size: 12px; color: var(--color-text-muted);">0 total findings</span>
+        </div>
+        <div class="card-body">
+          
+          <!-- Filters Toolbar -->
+          <div class="toolbar">
+            <input type="text" id="findingSearchInput" class="input-text" placeholder="Search by title, rule or resource..." style="flex: 1;">
+            <select id="findingDimensionFilter" class="select-control">
+              <option value="ALL">All Dimensions</option>
+              <option value="SECURITY">Security</option>
+              <option value="IAM">IAM</option>
+              <option value="NETWORK">Network</option>
+              <option value="CONFIGURATION">Configuration</option>
+              <option value="RELIABILITY">Reliability</option>
+              <option value="PERFORMANCE">Performance</option>
+              <option value="COST">Cost</option>
+            </select>
+            <select id="findingSeverityFilter" class="select-control">
+              <option value="ALL">All Severities</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+          </div>
+
+          <!-- Findings Data Table -->
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 100px;">Severity</th>
+                <th style="width: 120px;">Rule ID</th>
+                <th>Finding Title</th>
+                <th>Target Resource</th>
+                <th style="width: 120px;">Dimension</th>
+                <th style="width: 90px; text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="findingsTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 24px;">No scan selected or no findings detected.</td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: LIVE AWS AUDIT ==================== -->
+    <section id="view-live" class="view-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Live AWS Security & Posture Audit</h1>
+          <p class="page-desc">Performs active, read-only discovery of provisioned AWS resources (S3, EC2, IAM, RDS).</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">AWS Environment Identity & Boundary Status</span>
+        </div>
+        <div class="card-body">
+          <div id="liveAwsIdentityDetails" style="font-size: 13px; line-height: 1.8;">
+            Loading AWS STS credentials...
+          </div>
+          <div style="margin-top: 18px; display: flex; gap: 12px; align-items: center;">
+            <label for="liveRegionSelect" style="font-size: 13px; font-weight: 500;">Target Region:</label>
+            <select id="liveRegionSelect" class="select-control" style="width: 160px;">
+              <option value="us-east-1" selected>us-east-1 (N. Virginia)</option>
+              <option value="us-east-2">us-east-2 (Ohio)</option>
+              <option value="us-west-1">us-west-1 (N. California)</option>
+              <option value="us-west-2">us-west-2 (Oregon)</option>
+            </select>
+            <button type="button" id="triggerLiveAuditBtn" class="btn btn-primary">Run Live Resource Audit</button>
+          </div>
+          <div class="status-box" id="liveAuditStatusBox"></div>
+        </div>
+      </div>
+
+      <!-- Live Inspected Resources Inventory -->
+      <div class="card" id="liveInventoryCard" style="display: none; margin-top: 20px;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="card-title">Discovered Live AWS Resources Inventory</span>
+          <span id="liveInventoryCountBadge" style="font-size: 12px; color: var(--color-text-muted);">0 resources</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 180px;">Resource Type</th>
+                <th>Resource Identifier / Name</th>
+                <th style="width: 110px;">Region</th>
+                <th style="width: 130px;">Posture Status</th>
+                <th style="width: 90px; text-align: center;">Issues</th>
+              </tr>
+            </thead>
+            <tbody id="liveInventoryTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 24px;">No live audit run yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AWS Academy Boundaries & API Limitations Box -->
+      <div class="card" id="liveLimitationsCard" style="display: none; margin-top: 20px; border-left: 3px solid var(--color-secondary);">
+        <div class="card-header">
+          <span class="card-title" style="color: var(--color-secondary);">Account API Boundaries & Restrictions</span>
+        </div>
+        <div class="card-body" id="liveLimitationsBody" style="font-size: 13px; line-height: 1.6;"></div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 5: AUDIT HISTORY & REPORTS ==================== -->
+    <section id="view-history" class="view-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Assessment History & Compliance Reports</h1>
+          <p class="page-desc">Historical record of all evaluated architecture blueprints and live audit runs.</p>
+        </div>
+        <button type="button" id="refreshHistoryBtn" class="btn btn-secondary">Refresh History</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date / Time (UTC)</th>
+                <th>Architecture Target</th>
+                <th>Type</th>
+                <th>Risk Score</th>
+                <th>Grade</th>
+                <th>Findings</th>
+                <th style="text-align: right;">Report Actions</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 24px;">Loading historical assessments...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== SLIDE-OVER FINDING DETAIL DRAWER ==================== -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="findingDrawer">
+    <div class="drawer-header">
+      <div>
+        <span class="severity-tag" id="drawerSeverityTag">CRITICAL</span>
+        <span style="font-weight: 600; font-size: 14px; margin-left: 8px;" id="drawerRuleId">SEC-S3-001</span>
+      </div>
+      <button type="button" id="closeDrawerBtn" class="btn btn-secondary" style="padding: 2px 8px;">✕ Close</button>
+    </div>
+    <div class="drawer-body">
+      <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;" id="drawerTitle">Finding Title</h2>
+      <p style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 14px;" id="drawerResourceInfo">Resource: aws_s3_bucket.data</p>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 4px;">Detected Configuration Evidence</h4>
+        <div class="code-block" id="drawerEvidenceBlock" style="color: var(--color-primary); font-size: 11px;"></div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 4px;">Description & Architectural Rationale</h4>
+        <p style="font-size: 13px;" id="drawerDescription">Detailed description...</p>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 4px;">Potential Risk & Impact</h4>
+        <p style="font-size: 13px;" id="drawerImpact">Impact description...</p>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 4px;">Recommended Remediation</h4>
+        <p style="font-size: 13px;" id="drawerRemediationSummary">Mitigation summary...</p>
+      </div>
+
+      <div id="drawerCodeContainer" style="margin-bottom: 14px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted);">Suggested IaC Code Fix</h4>
+          <button type="button" class="btn btn-secondary" id="copyCodeBtn" style="padding: 2px 6px; font-size: 11px;">Copy Code</button>
+        </div>
+        <div class="code-block" id="drawerCodeBlock"></div>
+      </div>
+
+      <div id="drawerCliContainer" style="margin-bottom: 14px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted);">AWS CLI Remediation Command</h4>
+          <button type="button" class="btn btn-secondary" id="copyCliBtn" style="padding: 2px 6px; font-size: 11px;">Copy Command</button>
+        </div>
+        <div class="code-block" id="drawerCliBlock"></div>
+      </div>
+
+      <!-- Amazon Bedrock AI Contextual Remediation -->
+      <div id="drawerAiContainer" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--color-border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h4 style="font-size: 12px; text-transform: uppercase; color: var(--color-primary); font-weight: 600;">Amazon Bedrock Synthesis</h4>
+          <button type="button" class="btn btn-secondary" id="triggerAiRemediationBtn" style="padding: 2px 8px; font-size: 11px;">Synthesize Plan</button>
+        </div>
+        <div id="drawerAiStatus" style="font-size: 12px; color: var(--color-text-muted); display: none; margin-bottom: 6px;"></div>
+        <div class="code-block" id="drawerAiBlock" style="font-family: var(--font-main); font-size: 12px; white-space: pre-wrap; line-height: 1.5; display: none;"></div>
+      </div>
+    </div>
+  </aside>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
