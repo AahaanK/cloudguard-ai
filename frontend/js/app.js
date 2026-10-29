@@ -123,17 +123,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const h = await healthRes.json();
         const aws = h.aws || {};
         if (aws.authenticated) {
-          awsHeaderStatus.textContent = aws.is_lab_role ? "AWS Connected (LabRole)" : "AWS Connected";
+          const mode = aws.is_lab_role ? "AWS Connected (LabRole)" : "AWS Connected";
+          awsHeaderStatus.innerHTML = `<span class="status-indicator-dot verified"></span> <span>${mode}</span>`;
           awsHeaderStatus.style.color = "var(--color-primary)";
         } else if (aws.status === "EXPIRED_CREDENTIALS") {
-          awsHeaderStatus.textContent = "AWS Session Expired";
+          awsHeaderStatus.innerHTML = `<span class="status-indicator-dot warning"></span> <span>AWS Session Expired</span>`;
           awsHeaderStatus.style.color = "var(--color-critical)";
         } else if (aws.status === "MISSING_SESSION_TOKEN") {
-          awsHeaderStatus.textContent = "AWS Token Missing";
+          awsHeaderStatus.innerHTML = `<span class="status-indicator-dot warning"></span> <span>AWS Token Missing</span>`;
           awsHeaderStatus.style.color = "var(--color-critical)";
         } else {
-          awsHeaderStatus.textContent = "Local Resilient Storage Active";
-          awsHeaderStatus.style.color = "var(--color-text-muted)";
+          awsHeaderStatus.innerHTML = `<span class="status-indicator-dot"></span> <span>Local Resilient Storage Active</span>`;
+          awsHeaderStatus.style.color = "var(--color-text-secondary)";
         }
       }
 
@@ -337,8 +338,8 @@ document.addEventListener("DOMContentLoaded", () => {
       dimHtml += `
         <div class="dimension-item">
           <div class="dimension-header">
-            <span>${d.label}</span>
-            <span style="font-weight: 600;">${score} / 100</span>
+            <span class="dimension-name">${d.label}</span>
+            <span class="dimension-score-val">${score} / 100</span>
           </div>
           <div class="dimension-bar-track">
             <div class="dimension-bar-fill" style="width: ${Math.min(100, score)}%;"></div>
@@ -370,12 +371,12 @@ document.addEventListener("DOMContentLoaded", () => {
       rows += `
         <tr>
           <td><span class="severity-tag ${f.severity}">${f.severity}</span></td>
-          <td><code style="font-size: 11px;">${f.rule_id}</code></td>
-          <td style="font-weight: 500;">${f.title}</td>
-          <td><code style="font-size: 11px;">${f.resource_id}</code></td>
-          <td>${f.dimension}</td>
+          <td><code style="font-size: 11.5px; padding: 2px 6px; background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: 3px;">${f.rule_id}</code></td>
+          <td style="font-weight: 600; color: var(--color-text-main);">${f.title}</td>
+          <td><code style="font-size: 11px; color: var(--color-text-secondary);">${f.resource_id}</code></td>
+          <td><span style="font-size: 12px; font-weight: 500; color: var(--color-text-secondary);">${f.dimension}</span></td>
           <td style="text-align: center;">
-            <button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 2px 8px; font-size: 11px;">Inspect</button>
+            <button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 3px 10px; font-size: 11.5px;">Inspect &rarr;</button>
           </td>
         </tr>
       `;
