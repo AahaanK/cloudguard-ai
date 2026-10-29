@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CloudGuardAI — Enterprise Cloud Security & Posture Management</title>
-  <link rel="stylesheet" href="/static/css/coastal.css?v=2.1">
+  <title>CloudGuardAI — Enterprise Cloud Architecture &amp; Posture Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/coastal.css?v=2.2">
 </head>
 <body>
 
@@ -13,26 +16,26 @@
     <div class="nav-container">
       <div class="brand-section">
         <div class="brand-logo-icon" aria-hidden="true">
-          <!-- Geometric Shield Logo -->
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Geometric Shield Logo with Sand Crosshairs -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            <path d="M12 8v8" stroke="#DCC9A8"/>
-            <path d="M8 12h8" stroke="#DCC9A8"/>
+            <path d="M12 8v8" stroke="#DCC9A8" stroke-width="2"/>
+            <path d="M8 12h8" stroke="#DCC9A8" stroke-width="2"/>
           </svg>
         </div>
         <div class="brand-text-block">
           <div class="brand-title-row">
             <span class="brand-title">CloudGuardAI</span>
-            <span class="brand-edition-tag">ENTERPRISE</span>
+            <span class="brand-edition-tag">ENTERPRISE CSPM</span>
           </div>
-          <span class="brand-subtitle">Cloud Architecture Risk Analyzer &bull; CSPM / IaC</span>
+          <span class="brand-subtitle">Cloud Architecture Risk Analyzer &bull; Pre-Deployment IaC Audit</span>
         </div>
       </div>
 
       <!-- Navigation Tabs -->
       <nav class="nav-links" aria-label="Main Navigation">
         <button type="button" class="nav-item active" data-view="view-upload">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
@@ -40,7 +43,7 @@
           Blueprint Ingestion
         </button>
         <button type="button" class="nav-item" data-view="view-dashboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <rect x="3" y="3" width="7" height="9"/>
             <rect x="14" y="3" width="7" height="5"/>
             <rect x="14" y="12" width="7" height="9"/>
@@ -49,7 +52,7 @@
           Risk Assessment
         </button>
         <button type="button" class="nav-item" data-view="view-findings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -57,13 +60,13 @@
           Findings &amp; Remediation
         </button>
         <button type="button" class="nav-item" data-view="view-live">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
           </svg>
           Live AWS Audit
         </button>
         <button type="button" class="nav-item" data-view="view-history">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
           </svg>
@@ -71,7 +74,7 @@
         </button>
       </nav>
 
-      <!-- Global Environment Status Pill -->
+      <!-- Global Environment Status Badge -->
       <div class="header-status-badge" id="awsHeaderStatus">
         <span class="status-indicator-dot"></span>
         Checking AWS status...
@@ -82,21 +85,21 @@
   <!-- Main Container -->
   <main class="main-container">
 
-    <!-- Global Top Metrics Bar -->
+    <!-- Global Top Metrics Bar - Editorial Ledger -->
     <section class="metrics-grid" id="metricsSummaryBar" aria-label="Global Security Metrics">
       <!-- Metric 1: Total Architectures -->
       <div class="metric-tile">
         <div class="metric-header">
           <span class="metric-label">Evaluated Blueprints</span>
           <div class="metric-icon-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
           </div>
         </div>
         <div class="metric-value" id="metricTotalScans">0</div>
-        <span class="metric-subtext">Across IaC &amp; live infrastructure scans</span>
+        <span class="metric-subtext">Across IaC &amp; live cloud posture scans</span>
       </div>
 
       <!-- Metric 2: Average Risk Score -->
@@ -104,173 +107,214 @@
         <div class="metric-header">
           <span class="metric-label">Average Risk Score</span>
           <div class="metric-icon-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
             </svg>
           </div>
         </div>
         <div class="metric-value" id="metricAvgScore">0.0</div>
-        <span class="metric-subtext">Weighted across 7 Well-Architected dimensions</span>
+        <span class="metric-subtext">Weighted across 7 Well-Architected pillars</span>
       </div>
 
       <!-- Metric 3: Open Critical Risks -->
       <div class="metric-tile">
         <div class="metric-header">
           <span class="metric-label">Open Critical Risks</span>
-          <div class="metric-icon-badge" style="color: var(--color-critical);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="metric-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="color: var(--color-critical);">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
               <line x1="12" y1="9" x2="12" y2="13"/>
               <line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
           </div>
         </div>
-        <div class="metric-value" id="metricTotalCritical" style="color: var(--color-critical);">0</div>
-        <span class="metric-subtext">Zero-day exposure, unauthenticated public assets</span>
+        <div class="metric-value critical" id="metricTotalCritical">0</div>
+        <span class="metric-subtext">Public asset exposure, unauthenticated ingress</span>
       </div>
 
       <!-- Metric 4: High Severity Items -->
       <div class="metric-tile">
         <div class="metric-header">
           <span class="metric-label">High Severity Items</span>
-          <div class="metric-icon-badge" style="color: var(--color-high);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="metric-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="color: var(--color-high);">
               <circle cx="12" cy="12" r="10"/>
               <line x1="12" y1="8" x2="12" y2="12"/>
               <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
           </div>
         </div>
-        <div class="metric-value" id="metricTotalHigh" style="color: var(--color-high);">0</div>
-        <span class="metric-subtext">Over-privileged IAM, unencrypted volumes</span>
+        <div class="metric-value high" id="metricTotalHigh">0</div>
+        <span class="metric-subtext">Over-privileged IAM roles, unencrypted data</span>
       </div>
     </section>
 
     <!-- ==================== VIEW 1: BLUEPRINT INGESTION ==================== -->
     <section id="view-upload" class="view-section active">
-      <div class="page-header">
-        <div class="page-header-text">
-          <h1 class="page-title">Infrastructure Blueprint Upload &amp; Analysis</h1>
-          <p class="page-desc">Ingest Terraform or CloudFormation configurations to execute deterministic pre-deployment risk analysis.</p>
+      <div class="editorial-hero">
+        <div class="editorial-hero-content">
+          <span class="editorial-tagline">DETERMINISTIC PRE-DEPLOYMENT RISK AUDIT</span>
+          <h1 class="editorial-title">Deterministic Cloud Architecture &amp; Blueprint Posture Audit</h1>
+          <p class="editorial-lead">
+            Evaluate Terraform and AWS CloudFormation templates prior to deployment against the AWS Well-Architected Framework and CIS Benchmarks. Identify vulnerabilities, IAM misconfigurations, and exposure before cloud provisioning.
+          </p>
         </div>
       </div>
 
-      <!-- Storage & Engine Health Status Card -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
-              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-              <line x1="6" y1="6" x2="6.01" y2="6"/>
-              <line x1="6" y1="18" x2="6.01" y2="18"/>
-            </svg>
-            <span class="card-title">Storage &amp; Integration Engine</span>
-          </div>
-          <button id="refreshStatusBtn" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-            Check Storage
-          </button>
-        </div>
-        <div class="card-body">
-          <div id="storageStatusText" style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.6;">
-            Connecting to storage backend...
-          </div>
-        </div>
-      </div>
-
-      <!-- Upload Zone Card -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <span class="card-title">Ingest &amp; Evaluate Blueprint</span>
-          </div>
-          <span class="card-subtitle">AST Parser &bull; Direct S3 Upload Bypass</span>
-        </div>
-        <div class="card-body">
-          <div class="dropzone" id="dropzone">
-            <div class="dropzone-icon-wrap" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-                <polyline points="12 12 12 17 14 15"/>
-                <polyline points="12 12 12 17 10 15"/>
-              </svg>
-            </div>
-            <div class="dropzone-label">Drag &amp; drop infrastructure blueprints here</div>
-            <div class="dropzone-subtext">Automatic AST parsing for Terraform HCL and AWS CloudFormation templates</div>
-
-            <!-- Supported Format Chips -->
-            <div class="dropzone-badges-row">
-              <span class="format-chip">.TF</span>
-              <span class="format-chip">.TF.JSON</span>
-              <span class="format-chip">.YAML</span>
-              <span class="format-chip">.YML</span>
-              <span class="format-chip">.JSON</span>
-              <span style="font-size: 11px; color: var(--color-text-muted); margin-left: 6px;">(Max 10 MB per file)</span>
-            </div>
-
-            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
-              <input type="file" id="fileInput" accept=".tf,.json,.yaml,.yml" style="display: none;">
-              <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="12" y1="18" x2="12" y2="12"/>
-                  <line x1="9" y1="15" x2="15" y2="15"/>
-                </svg>
-                Select Blueprint File
-              </button>
-              <button type="button" class="btn btn-sample" id="loadSampleBlueprintBtn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                Load Safe Sample Blueprint (Terraform)
-              </button>
-            </div>
-          </div>
-
-          <!-- Selected File Pane -->
-          <div class="selected-file-pane" id="selectedFilePane" style="display: none;">
-            <div class="selected-file-meta">
-              <div class="selected-file-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                  <polyline points="13 2 13 9 20 9"/>
-                </svg>
-              </div>
+      <!-- Main Ingestion Section: Two Column Split Layout -->
+      <div class="ingestion-split-grid">
+        <!-- Left Column: Ingestion Intake Station -->
+        <div class="ingestion-left-col">
+          <!-- Storage & Engine Health Status Ledger -->
+          <div class="storage-status-ledger">
+            <div class="storage-status-left">
+              <div class="storage-pulse-dot"></div>
               <div>
-                <div class="selected-file-title" id="selectedFileName">main.tf</div>
-                <span class="selected-file-size" id="selectedFileSize">(0 KB)</span>
+                <span class="storage-label">Storage Backend &amp; Integration Engine:</span>
+                <span id="storageStatusText" class="storage-value">Connecting to storage backend...</span>
               </div>
             </div>
-            <button type="button" class="btn btn-primary" id="analyzeBtn">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            <button id="refreshStatusBtn" class="btn btn-secondary btn-sm" type="button">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
-              Analyze Architecture
+              Check Storage
             </button>
           </div>
 
-          <!-- Progress Bar -->
-          <div id="progressContainer" style="display: none; margin-top: 18px;">
-            <div style="height: 6px; width: 100%; background: var(--color-surface-subtle); border-radius: var(--radius-xs); overflow: hidden; border: 1px solid var(--color-border-subtle);">
-              <div id="progressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #287FA3 0%, #1F6886 100%); transition: width 0.25s ease;"></div>
+          <!-- Dropzone Card -->
+          <div class="card blueprint-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span class="card-title">Infrastructure Blueprint Intake</span>
+              </div>
+              <span class="card-subtitle">Direct AST Parsing Engine</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-secondary); margin-top: 6px;">
-              <span id="progressText">Uploading and evaluating rules...</span>
-              <span id="progressPercent" style="font-weight: 600; font-family: var(--font-mono);">0%</span>
+            <div class="card-body">
+              <div class="dropzone" id="dropzone">
+                <div class="dropzone-blueprint-grid" aria-hidden="true"></div>
+                <div class="dropzone-icon-wrap" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                </div>
+                <div class="dropzone-label">Drop infrastructure blueprint files here or browse</div>
+                <div class="dropzone-subtext">Automatic deterministic AST parsing for Terraform HCL (.tf) and AWS CloudFormation (.json, .yaml)</div>
+
+                <!-- Supported Format Chips -->
+                <div class="dropzone-badges-row">
+                  <span class="format-chip">.TF</span>
+                  <span class="format-chip">.TF.JSON</span>
+                  <span class="format-chip">.YAML</span>
+                  <span class="format-chip">.YML</span>
+                  <span class="format-chip">.JSON</span>
+                  <span class="format-limit-text">(Up to 10 MB per blueprint)</span>
+                </div>
+
+                <div class="dropzone-actions-row">
+                  <input type="file" id="fileInput" accept=".tf,.json,.yaml,.yml" style="display: none;">
+                  <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="12" y1="18" x2="12" y2="12"/>
+                      <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                    Select Blueprint File
+                  </button>
+                  <button type="button" class="btn btn-sample" id="loadSampleBlueprintBtn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    Load Safe Sample Blueprint (Terraform)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selected File Pane -->
+              <div class="selected-file-pane" id="selectedFilePane" style="display: none;">
+                <div class="selected-file-meta">
+                  <div class="selected-file-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                      <polyline points="13 2 13 9 20 9"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="selected-file-title" id="selectedFileName">main.tf</div>
+                    <span class="selected-file-size" id="selectedFileSize">(0 KB)</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary" id="analyzeBtn">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                  Analyze Architecture
+                </button>
+              </div>
+
+              <!-- Progress Bar -->
+              <div id="progressContainer" style="display: none; margin-top: 18px;">
+                <div class="progress-track">
+                  <div id="progressBar" class="progress-fill"></div>
+                </div>
+                <div class="progress-meta">
+                  <span id="progressText">Uploading and evaluating rules...</span>
+                  <span id="progressPercent">0%</span>
+                </div>
+              </div>
+
+              <div class="status-box" id="uploadStatusBox"></div>
             </div>
           </div>
+        </div>
 
-          <div class="status-box" id="uploadStatusBox"></div>
+        <!-- Right Column: Enterprise Architecture Visual & Standards -->
+        <div class="ingestion-right-col">
+          <div class="editorial-visual-frame">
+            <div class="editorial-image-wrapper">
+              <img src="/static/assets/images/datacenter-architecture.jpg" alt="Enterprise Cloud Facility" class="editorial-photo" />
+              <div class="editorial-image-overlay"></div>
+              <div class="editorial-image-caption">
+                <span class="eic-badge">HYPERSCALE SPECIFICATION</span>
+                <span class="eic-title">Tier-IV Cloud Facility Infrastructure</span>
+                <span class="eic-desc">Continuous posture audit mapped to CIS AWS Foundations &amp; NIST 800-53</span>
+              </div>
+            </div>
+
+            <div class="standards-spec-block">
+              <div class="spec-row">
+                <div class="spec-num">01</div>
+                <div class="spec-text">
+                  <span class="spec-title">Deterministic AST Parser</span>
+                  <span class="spec-desc">Full syntax graph traversal without third-party SaaS transmission or telemetry leaks.</span>
+                </div>
+              </div>
+              <div class="spec-row">
+                <div class="spec-num">02</div>
+                <div class="spec-text">
+                  <span class="spec-title">7-Pillar Architecture Scoring</span>
+                  <span class="spec-desc">Weighted risk allocation across Security, IAM, Network, Configuration, Reliability, Performance, and Cost.</span>
+                </div>
+              </div>
+              <div class="spec-row">
+                <div class="spec-num">03</div>
+                <div class="spec-text">
+                  <span class="spec-title">Actionable Code-Level Remediation</span>
+                  <span class="spec-desc">Synthesized Terraform/CloudFormation code fixes, AWS CLI mitigation commands, and Bedrock AI remediation.</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -283,7 +327,7 @@
             <span class="stage-pill active" id="currentStageBadge">Stage 1: Validation</span>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <button type="button" class="btn btn-secondary" id="skipAnimationBtn" style="padding: 4px 10px; font-size: 11px;">Fast-Forward</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="skipAnimationBtn">Fast-Forward</button>
           </div>
         </div>
 
@@ -335,7 +379,7 @@
             </div>
             <div class="pipeline-metric-card">
               <div class="pm-title">Inspection Status</div>
-              <div class="pm-value" id="liveInspectionStatus" style="font-size: 16px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Idle</div>
+              <div class="pm-value" id="liveInspectionStatus" style="font-size: 16px; line-height: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Idle</div>
               <div class="pm-subtext" id="liveInspectionSub">--</div>
             </div>
             <div class="pipeline-metric-card">
@@ -378,7 +422,7 @@
             <div class="event-stream-container">
               <div class="es-header">
                 <div style="font-weight: 700; font-size: 13px; color: var(--color-text-main);">Chronological Analysis Feed</div>
-                <span class="chip" id="eventCountBadge">0 events</span>
+                <span class="stage-pill" id="eventCountBadge">0 events</span>
               </div>
               <div class="es-list" id="eventStreamList">
                 <!-- Populated dynamically with live events -->
@@ -393,13 +437,13 @@
               <div style="font-size: 12px; color: var(--color-text-secondary);" id="pcSummaryDetails">All 7 pipeline stages executed. Persistent records created.</div>
             </div>
             <div class="pc-actions">
-              <button type="button" class="btn btn-secondary" id="pcViewFindingsBtn">
+              <button type="button" class="btn btn-secondary btn-sm" id="pcViewFindingsBtn">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                 </svg>
                 View Findings
               </button>
-              <button type="button" class="btn btn-secondary" id="pcViewDashboardBtn">
+              <button type="button" class="btn btn-secondary btn-sm" id="pcViewDashboardBtn">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="3" y="3" width="7" height="7"/>
                   <rect x="14" y="3" width="7" height="7"/>
@@ -408,7 +452,7 @@
                 </svg>
                 Full Dashboard
               </button>
-              <a href="#" class="btn btn-primary" id="pcDownloadHtmlBtn" target="_blank">
+              <a href="#" class="btn btn-primary btn-sm" id="pcDownloadHtmlBtn" target="_blank">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="6 9 6 2 18 2 18 9"/>
                   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -431,21 +475,21 @@
           <p class="page-desc" id="dashTargetSubtitle">Target: None selected (Upload a blueprint or choose from history)</p>
         </div>
         <div class="header-action-group">
-          <a href="#" id="dashExportMdBtn" class="btn btn-secondary" target="_blank">
+          <a href="#" id="dashExportMdBtn" class="btn btn-secondary btn-sm" target="_blank">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
             Export Markdown
           </a>
-          <a href="#" id="dashExportJsonBtn" class="btn btn-secondary" target="_blank">
+          <a href="#" id="dashExportJsonBtn" class="btn btn-secondary btn-sm" target="_blank">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
             Export JSON
           </a>
-          <a href="#" id="dashExportHtmlBtn" class="btn btn-primary" target="_blank">
+          <a href="#" id="dashExportHtmlBtn" class="btn btn-primary btn-sm" target="_blank">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 6 2 18 2 18 9"/>
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -453,7 +497,7 @@
             </svg>
             Printable Report
           </a>
-          <button type="button" id="dashPresignedS3Btn" class="btn btn-secondary">
+          <button type="button" id="dashPresignedS3Btn" class="btn btn-secondary btn-sm">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
@@ -654,14 +698,14 @@
               <option value="us-west-1">us-west-1 (N. California)</option>
               <option value="us-west-2">us-west-2 (Oregon)</option>
             </select>
-            <button type="button" id="triggerLiveAuditBtn" class="btn btn-primary">
+            <button type="button" id="triggerLiveAuditBtn" class="btn btn-primary btn-sm">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
                 <polygon points="10 8 16 12 10 16 10 8"/>
               </svg>
               Run Live Resource Audit
             </button>
-            <button type="button" id="refreshAwsCredentialsBtn" class="btn btn-secondary">
+            <button type="button" id="refreshAwsCredentialsBtn" class="btn btn-secondary btn-sm">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="23 4 23 10 17 10"/>
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -690,7 +734,7 @@
           <span id="liveInventoryCountBadge" class="card-subtitle">0 resources</span>
         </div>
         <div class="card-body" style="padding: 0;">
-          <div class="table-responsive" style="border: none; border-radius: 0;">
+          <div class="table-responsive" style="border: none;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -732,7 +776,7 @@
           <h1 class="page-title">Assessment History &amp; Compliance Reports</h1>
           <p class="page-desc">Chronological record of evaluated infrastructure blueprints and live cloud discovery scans.</p>
         </div>
-        <button type="button" id="refreshHistoryBtn" class="btn btn-secondary">
+        <button type="button" id="refreshHistoryBtn" class="btn btn-secondary btn-sm">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10"/>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -743,7 +787,7 @@
 
       <div class="card">
         <div class="card-body" style="padding: 0;">
-          <div class="table-responsive" style="border: none; border-radius: var(--radius-md);">
+          <div class="table-responsive" style="border: none;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -777,7 +821,7 @@
         <span class="severity-tag" id="drawerSeverityTag">CRITICAL</span>
         <span class="drawer-rule-pill" id="drawerRuleId">SEC-S3-001</span>
       </div>
-      <button type="button" id="closeDrawerBtn" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;">✕ Close</button>
+      <button type="button" id="closeDrawerBtn" class="btn btn-secondary btn-sm">✕ Close</button>
     </div>
     
     <div class="drawer-body">
@@ -817,7 +861,7 @@
         <div class="code-container">
           <div class="code-header-bar">
             <span class="code-badge">TERRAFORM / CLOUDFORMATION FIX</span>
-            <button type="button" class="btn btn-secondary" id="copyCodeBtn" style="padding: 2px 8px; font-size: 11px;">Copy Code</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="copyCodeBtn" style="padding: 2px 8px; font-size: 11px;">Copy Code</button>
           </div>
           <div class="code-block" id="drawerCodeBlock"></div>
         </div>
@@ -829,7 +873,7 @@
         <div class="code-container">
           <div class="code-header-bar">
             <span class="code-badge">AWS CLI FIX</span>
-            <button type="button" class="btn btn-secondary" id="copyCliBtn" style="padding: 2px 8px; font-size: 11px;">Copy Command</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="copyCliBtn" style="padding: 2px 8px; font-size: 11px;">Copy Command</button>
           </div>
           <div class="code-block" id="drawerCliBlock"></div>
         </div>
@@ -839,10 +883,10 @@
       <div id="drawerAiContainer" class="drawer-section" style="margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--color-border);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="drawer-section-title" style="color: var(--color-primary);">Amazon Bedrock Synthesis</span>
+            <span class="drawer-section-title" style="color: var(--color-primary); margin-bottom: 0;">Amazon Bedrock Synthesis</span>
             <span class="brand-edition-tag" style="font-size: 9px; padding: 1px 4px;">AI ASSIST</span>
           </div>
-          <button type="button" class="btn btn-secondary" id="triggerAiRemediationBtn" style="padding: 3px 8px; font-size: 11px;">Synthesize Plan</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="triggerAiRemediationBtn" style="padding: 3px 8px; font-size: 11px;">Synthesize Plan</button>
         </div>
         <div id="drawerAiStatus" style="font-size: 12px; color: var(--color-text-muted); display: none; margin-bottom: 8px;"></div>
         <div class="evidence-box" id="drawerAiBlock" style="color: var(--color-text-main); font-family: var(--font-main); font-size: 12.5px; white-space: pre-wrap; line-height: 1.5; display: none;"></div>
@@ -870,11 +914,11 @@
         <h4 style="margin: 16px 0 8px 0; font-size: 13px; font-weight: 700; color: var(--color-text-main);">Evaluated Security &amp; Compliance Checks</h4>
         <div id="resModalChecksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         <h4 style="margin: 16px 0 8px 0; font-size: 13px; font-weight: 700; color: var(--color-text-main);">Declared Properties</h4>
-        <pre id="resModalProps" style="font-family: var(--font-mono); font-size: 11px; background: var(--color-surface-subtle); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border-subtle); max-height: 180px; overflow-y: auto; color: var(--color-text-main);"></pre>
+        <pre id="resModalProps" style="font-family: var(--font-mono); font-size: 11px; background: var(--color-surface-subtle); padding: 12px; border-radius: var(--radius-xs); border: 1px solid var(--color-border-subtle); max-height: 180px; overflow-y: auto; color: var(--color-text-main);"></pre>
       </div>
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=2.1"></script>
+  <script src="/static/js/app.js?v=2.2"></script>
 </body>
 </html>
