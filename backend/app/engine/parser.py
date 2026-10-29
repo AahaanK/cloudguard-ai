@@ -13,11 +13,21 @@ import yaml
 from typing import List, Dict, Any, Tuple, Optional
 
 class NormalizedResource:
-    def __init__(self, resource_id: str, resource_type: str, properties: Dict[str, Any], line_number: int = 1):
+    def __init__(
+        self,
+        resource_id: str,
+        resource_type: str,
+        properties: Dict[str, Any],
+        line_number: int = 1,
+        service: Optional[str] = None,
+        relationships: Optional[List[str]] = None
+    ):
         self.resource_id = resource_id
         self.resource_type = resource_type.strip()
         self.properties = properties or {}
         self.line_number = line_number
+        self.service = service or IaCParser.classify_service(self.resource_type)
+        self.relationships = relationships or []
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.properties.get(key, default)
@@ -26,11 +36,69 @@ class NormalizedResource:
         return {
             "resource_id": self.resource_id,
             "resource_type": self.resource_type,
+            "service": self.service,
+            "relationships": self.relationships,
             "properties": self.properties,
             "line_number": self.line_number
         }
 
 class IaCParser:
+
+    @staticmethod
+    def classify_service(resource_type: str) -> str:
+        """Categorizes raw resource type strings into standardized AWS service families."""
+        t = resource_type.lower()
+        if "security_group" in t or "securitygroup" in t:
+            return "SECURITY_GROUP"
+        if "s3" in t or "bucket" in t:
+            return "S3"
+        if "db_instance" in t or "rds" in t or "database" in t:
+            return "RDS"
+        if "ebs" in t or "volume" in t:
+            return "EBS"
+        if "vpc" in t or "subnet" in t or "internet_gateway" in t or "route_table" in t or "nat_gateway" in t:
+            return "VPC"
+        if "instance" in t or "ec2" in t or "launch_template" in t:
+            return "EC2"
+        if "iam" in t or "role" in t or "policy" in t or "user" in t:
+            return "IAM"
+        if "lambda" in t or "serverless" in t:
+            return "LAMBDA"
+        if "dynamodb" in t or "table" in t:
+            return "DYNAMODB"
+        if "api_gateway" in t or "apigateway" in t:
+            return "API_GATEWAY"
+        return "OTHER_AWS"
+
+    @staticmethod
+    def _link_relationships(resources: List[NormalizedResource]):
+        """Discovers cross-resource references (e.g. EC2 -> SG, Subnet -> VPC, Bucket Policy -> Bucket)."""
+        id_map = {r.resource_id: r for r in resources}
+        # Also map short names (e.g. for "aws_security_group.web_sg" allow "web_sg")
+        short_name_map = {}
+        for r in resources:
+            parts = r.resource_id.split(".")
+            if len(parts) > 1:
+                short_name_map[parts[1]] = r.resource_id
+
+        for r in resources:
+            rel_set = set()
+            # Inspect properties string and raw HCL
+            raw_blob = str(r.properties.get("_raw_hcl", "")) + " " + json.dumps(
+                {k: v for k, v in r.properties.items() if k != "_raw_hcl"}, default=str
+            )
+            for other_id in id_map:
+                if other_id == r.resource_id:
+                    continue
+                # Full ID match
+                if other_id in raw_blob:
+                    rel_set.add(other_id)
+                    continue
+                # Short name match
+                short_name = other_id.split(".")[-1]
+                if short_name and short_name in raw_blob:
+                    rel_set.add(other_id)
+            r.relationships = sorted(list(rel_set))
 
     @staticmethod
     def parse(content: bytes, filename: str) -> Tuple[List[NormalizedResource], List[Dict[str, Any]]]:
@@ -48,29 +116,40 @@ class IaCParser:
         if lower.endswith(".tf"):
             IaCParser._detect_tf_unsupported(text, unsupported)
             resources = IaCParser._parse_terraform_hcl(text)
+            IaCParser._link_relationships(resources)
             return resources, unsupported
 
         elif lower.endswith(".tf.json"):
-            return IaCParser._parse_terraform_json(text, unsupported)
+            resources, unsupported = IaCParser._parse_terraform_json(text, unsupported)
+            IaCParser._link_relationships(resources)
+            return resources, unsupported
 
         elif lower.endswith(".yaml") or lower.endswith(".yml"):
-            return IaCParser._parse_cloudformation_yaml(text, unsupported)
+            resources, unsupported = IaCParser._parse_cloudformation_yaml(text, unsupported)
+            IaCParser._link_relationships(resources)
+            return resources, unsupported
 
         elif lower.endswith(".json"):
             try:
                 data = json.loads(text)
                 if isinstance(data, dict):
                     if "Resources" in data:
-                        return IaCParser._parse_cloudformation_dict(data, unsupported)
+                        resources, unsupported = IaCParser._parse_cloudformation_dict(data, unsupported)
+                        IaCParser._link_relationships(resources)
+                        return resources, unsupported
                     elif "resource" in data:
-                        return IaCParser._parse_terraform_dict(data, unsupported)
+                        resources, unsupported = IaCParser._parse_terraform_dict(data, unsupported)
+                        IaCParser._link_relationships(resources)
+                        return resources, unsupported
             except Exception:
                 pass
             return [], [{"type": "MALFORMED_JSON", "description": "Unable to parse JSON syntax."}]
 
         # Fallback to HCL
         IaCParser._detect_tf_unsupported(text, unsupported)
-        return IaCParser._parse_terraform_hcl(text), unsupported
+        resources = IaCParser._parse_terraform_hcl(text)
+        IaCParser._link_relationships(resources)
+        return resources, unsupported
 
     @staticmethod
     def _detect_tf_unsupported(text: str, unsupported: List[Dict[str, Any]]):

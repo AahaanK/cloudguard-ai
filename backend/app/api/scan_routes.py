@@ -21,6 +21,117 @@ from ..aws.cloudwatch_logger import cloudwatch_logger
 
 router = APIRouter(prefix="/api/v1/scan", tags=["Risk Analysis & Assessment"])
 
+SAMPLE_TERRAFORM_BLUEPRINT = '''# Safe Enterprise Production Infrastructure Stack
+# CloudGuardAI Deterministic Risk Analysis & Posture Assessment Template
+
+resource "aws_vpc" "production_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+  tags = {
+    Name        = "production-vpc"
+    Environment = "production"
+  }
+}
+
+resource "aws_subnet" "public_subnet_a" {
+  vpc_id            = aws_vpc.production_vpc.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-east-1a"
+  tags = {
+    Tier = "public"
+  }
+}
+
+resource "aws_security_group" "web_tier_sg" {
+  name        = "production-web-sg"
+  description = "Public web ingress and administration security group"
+  vpc_id      = aws_vpc.production_vpc.id
+
+  # HTTPS Ingress
+  ingress {
+    description = "Allow HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Insecure administration port open to 0.0.0.0/0
+  ingress {
+    description = "SSH Administration Ingress"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "app_server" {
+  ami                    = "ami-0c55b159cbfafe1f0"
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public_subnet_a.id
+  vpc_security_group_ids = [aws_security_group.web_tier_sg.id]
+  monitoring             = true
+  tags = {
+    Name = "prod-app-worker"
+  }
+}
+
+resource "aws_s3_bucket" "public_customer_media" {
+  bucket = "prod-customer-media-public"
+  acl    = "public-read"
+}
+
+resource "aws_s3_bucket" "audit_vault" {
+  bucket = "prod-immutable-audit-records"
+  acl    = "private"
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+}
+
+resource "aws_db_instance" "primary_database" {
+  identifier          = "production-db-instance"
+  allocated_storage   = 50
+  engine              = "postgres"
+  instance_class      = "db.t3.medium"
+  publicly_accessible = false
+  deletion_protection = false
+  multi_az            = false
+}
+
+resource "aws_iam_role" "application_worker_role" {
+  name = "production-app-exec-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
+'''
+
+@router.get("/sample-blueprint")
+async def get_sample_blueprint():
+    """Provides a safe, multi-tier enterprise Terraform template for 1-click verification."""
+    return {
+        "success": True,
+        "filename": "production_cloud_stack.tf",
+        "content": SAMPLE_TERRAFORM_BLUEPRINT,
+        "format": "hcl",
+        "size_bytes": len(SAMPLE_TERRAFORM_BLUEPRINT.encode("utf-8")),
+        "description": "Safe multi-tier AWS blueprint comprising VPC, Subnet, Security Group, EC2, S3, RDS, and IAM."
+    }
+
 @router.post("/upload")
 async def scan_uploaded_infrastructure(
     file: UploadFile = File(...),
@@ -52,8 +163,14 @@ async def scan_uploaded_infrastructure(
         # 3. Parse Normalized Resources & Detect Unsupported Constructs
         resources, unsupported = IaCParser.parse(stored_content, filename)
 
-        # 4. Evaluate 7-Dimension Rules
-        findings = RuleEvaluator.evaluate(resources, scan_id)
+        # 4. Evaluate 7-Dimension Rules & Build Inspection Queue Telemetry
+        findings, discovered_resources, discovery_summary = RuleEvaluator.evaluate_blueprint(
+            resources=resources,
+            scan_id=scan_id,
+            unsupported=unsupported,
+            filename=filename,
+            file_size=len(raw_bytes)
+        )
 
         # 5. Compute Scores & Subtotals
         score, grade, dim_scores, counts = RiskScorer.calculate_score(findings)
@@ -73,6 +190,8 @@ async def scan_uploaded_infrastructure(
             low_count=counts["low"],
             dimension_scores=dim_scores,
             unsupported_constructs=unsupported,
+            discovered_resources=discovered_resources,
+            discovery_summary=discovery_summary,
             file_key=store_res["file_key"],
             storage_backend=store_res["storage_backend"],
             findings=findings

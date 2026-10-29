@@ -90,8 +90,14 @@ def process_analysis_job(file_key: str, analysis_id: Optional[str] = None) -> Di
         # 4. Parse Normalized Resources
         resources, unsupported = IaCParser.parse(content, filename)
 
-        # 5. Evaluate 7-Dimension Rules
-        findings = RuleEvaluator.evaluate(resources, analysis_id)
+        # 5. Evaluate 7-Dimension Rules & Build Inspection Telemetry
+        findings, discovered_resources, discovery_summary = RuleEvaluator.evaluate_blueprint(
+            resources=resources,
+            scan_id=analysis_id,
+            unsupported=unsupported,
+            filename=filename,
+            file_size=len(content)
+        )
 
         # 6. Compute Scores
         score, grade, dim_scores, counts = RiskScorer.calculate_score(findings)
@@ -112,6 +118,8 @@ def process_analysis_job(file_key: str, analysis_id: Optional[str] = None) -> Di
             low_count=counts["low"],
             dimension_scores=dim_scores,
             unsupported_constructs=unsupported,
+            discovered_resources=discovered_resources,
+            discovery_summary=discovery_summary,
             file_key=clean_key,
             storage_backend="s3" if storage_manager.prefer_s3 else "local",
             findings=findings

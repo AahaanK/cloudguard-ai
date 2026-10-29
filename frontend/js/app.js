@@ -35,6 +35,45 @@ document.addEventListener("DOMContentLoaded", () => {
   const progressPercent = document.getElementById("progressPercent");
   const progressText = document.getElementById("progressText");
   const uploadStatusBox = document.getElementById("uploadStatusBox");
+  const loadSampleBlueprintBtn = document.getElementById("loadSampleBlueprintBtn");
+
+  // Live Analysis Workspace
+  const liveAnalysisWorkspace = document.getElementById("liveAnalysisWorkspace");
+  const pipelineStepper = document.getElementById("pipelineStepper");
+  const currentStageBadge = document.getElementById("currentStageBadge");
+  const skipAnimationBtn = document.getElementById("skipAnimationBtn");
+  const liveDiscoveredCount = document.getElementById("liveDiscoveredCount");
+  const liveDiscoveredSub = document.getElementById("liveDiscoveredSub");
+  const liveInspectionStatus = document.getElementById("liveInspectionStatus");
+  const liveInspectionSub = document.getElementById("liveInspectionSub");
+  const liveChecksCount = document.getElementById("liveChecksCount");
+  const livePassedChecks = document.getElementById("livePassedChecks");
+  const liveFailedChecks = document.getElementById("liveFailedChecks");
+  const liveFindingsCount = document.getElementById("liveFindingsCount");
+  const liveFindingsSub = document.getElementById("liveFindingsSub");
+  const liveScoreValue = document.getElementById("liveScoreValue");
+  const liveGradeValue = document.getElementById("liveGradeValue");
+  const resourceGraphGrid = document.getElementById("resourceGraphGrid");
+  const eventStreamList = document.getElementById("eventStreamList");
+  const eventCountBadge = document.getElementById("eventCountBadge");
+  const pipelineCompletionBar = document.getElementById("pipelineCompletionBar");
+  const pcSummaryTitle = document.getElementById("pcSummaryTitle");
+  const pcSummaryDetails = document.getElementById("pcSummaryDetails");
+  const pcViewFindingsBtn = document.getElementById("pcViewFindingsBtn");
+  const pcViewDashboardBtn = document.getElementById("pcViewDashboardBtn");
+  const pcDownloadHtmlBtn = document.getElementById("pcDownloadHtmlBtn");
+
+  // Resource Detail Inspector Modal
+  const resourceModalBackdrop = document.getElementById("resourceModalBackdrop");
+  const resModalCloseBtn = document.getElementById("resModalCloseBtn");
+  const resModalService = document.getElementById("resModalService");
+  const resModalId = document.getElementById("resModalId");
+  const resModalType = document.getElementById("resModalType");
+  const resModalLine = document.getElementById("resModalLine");
+  const resModalStatus = document.getElementById("resModalStatus");
+  const resModalRelations = document.getElementById("resModalRelations");
+  const resModalChecksList = document.getElementById("resModalChecksList");
+  const resModalProps = document.getElementById("resModalProps");
 
   // Dashboard View
   const dashTargetSubtitle = document.getElementById("dashTargetSubtitle");
@@ -202,6 +241,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  if (loadSampleBlueprintBtn) {
+    loadSampleBlueprintBtn.addEventListener("click", async () => {
+      try {
+        loadSampleBlueprintBtn.disabled = true;
+        const res = await fetch("/api/v1/scan/sample-blueprint");
+        if (!res.ok) throw new Error("Could not fetch safe sample blueprint.");
+        const data = await res.json();
+
+        const blob = new Blob([data.content], { type: "text/plain" });
+        const sampleFile = new File([blob], data.filename, { type: "text/plain" });
+
+        handleSelectedFile(sampleFile);
+        uploadStatusBox.className = "status-box info";
+        uploadStatusBox.innerHTML = `<strong>Safe Sample Blueprint Loaded:</strong> <code>${data.filename}</code> (${formatBytes(data.size_bytes)}). Multi-tier AWS blueprint comprising VPC, Subnet, Security Group, EC2, S3, RDS, and IAM ready for analysis. Click <strong>Analyze Architecture</strong> to begin live inspection.`;
+        uploadStatusBox.style.display = "block";
+      } catch (err) {
+        showUploadError("Failed to load sample blueprint: " + err.message);
+      } finally {
+        loadSampleBlueprintBtn.disabled = false;
+      }
+    });
+  }
+
   function handleSelectedFile(file) {
     selectedFile = file;
     selectedFileName.textContent = file.name;
@@ -254,10 +316,10 @@ document.addEventListener("DOMContentLoaded", () => {
             switchView("view-dashboard");
           });
 
-          loadScanIntoDashboard(scan);
-          loadHealthAndMetrics();
+          // Run interactive live pipeline visualizer
+          runInteractiveLivePipeline(scan);
         } catch (err) {
-          showUploadError("Failed to parse analysis results.");
+          showUploadError("Failed to parse analysis results: " + err.message);
         }
       } else {
         let msg = "Analysis failed.";
@@ -274,6 +336,382 @@ document.addEventListener("DOMContentLoaded", () => {
       progressContainer.style.display = "none";
       showUploadError("Network connection error to backend analysis server.");
     };
+
+    xhr.send(formData);
+  });
+
+  // --- INTERACTIVE PIPELINE & LIVE VISUALIZATION HELPERS ---
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  function sanitizeId(id) {
+    return String(id || "item").replace(/[^a-zA-Z0-9_-]/g, "_");
+  }
+
+  function formatServiceName(svc) {
+    const s = String(svc || "OTHER_AWS").toUpperCase();
+    if (s === "SECURITY_GROUP") return "Security Groups";
+    if (s === "S3") return "Amazon S3 Storage";
+    if (s === "EC2") return "Amazon EC2 Compute";
+    if (s === "RDS") return "Amazon RDS Database";
+    if (s === "IAM") return "AWS IAM & Security";
+    if (s === "VPC") return "Amazon VPC Networking";
+    if (s === "EBS") return "Elastic Block Store (EBS)";
+    if (s === "LAMBDA") return "AWS Lambda Serverless";
+    if (s === "DYNAMODB") return "Amazon DynamoDB";
+    if (s === "API_GATEWAY") return "Amazon API Gateway";
+    return "AWS Cloud Infrastructure";
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function renderTopologyGrid(resources, initialStatus = "PENDING") {
+    if (!resourceGraphGrid) return;
+    const groups = {};
+    resources.forEach(r => {
+      const svc = r.service || "OTHER_AWS";
+      if (!groups[svc]) groups[svc] = [];
+      groups[svc].push(r);
+    });
+
+    let html = "";
+    for (const [svc, resList] of Object.entries(groups)) {
+      html += `
+        <div class="rg-service-group">
+          <div class="rg-service-title">
+            <span>${formatServiceName(svc)}</span>
+            <span style="font-size: 11px; font-weight: 600; color: var(--color-text-muted);">${resList.length} resource${resList.length > 1 ? "s" : ""}</span>
+          </div>
+          <div class="rg-cards-list">`;
+      resList.forEach(r => {
+        const sId = sanitizeId(r.resource_id);
+        const relStr = (r.relationships && r.relationships.length > 0)
+          ? `References: ${r.relationships.join(", ")}`
+          : "Independent baseline resource";
+        html += `
+          <div class="resource-card status-${initialStatus.toLowerCase()}" id="resCard_${sId}" data-resid="${escapeHtml(r.resource_id)}">
+            <div class="rc-top">
+              <span class="rc-id" title="${escapeHtml(r.resource_id)}">${escapeHtml(r.resource_id)}</span>
+              <span class="rc-badge ${initialStatus}" id="resBadge_${sId}">${initialStatus}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">
+              <code>${escapeHtml(r.resource_type)}</code> &bull; Line ${r.line_number || 1}
+            </div>
+            <div class="rc-relationships" title="${escapeHtml(relStr)}">${escapeHtml(relStr)}</div>
+          </div>`;
+      });
+      html += `</div></div>`;
+    }
+    resourceGraphGrid.innerHTML = html;
+
+    // Attach click listeners to cards
+    resources.forEach(r => {
+      const sId = sanitizeId(r.resource_id);
+      const card = document.getElementById(`resCard_${sId}`);
+      if (card) {
+        card.addEventListener("click", () => {
+          openResourceInspector(r);
+        });
+      }
+    });
+  }
+
+  function updateResourceCardStatus(resourceId, status, findingsCount = 0) {
+    const sId = sanitizeId(resourceId);
+    const card = document.getElementById(`resCard_${sId}`);
+    const badge = document.getElementById(`resBadge_${sId}`);
+    if (card && badge) {
+      card.className = `resource-card status-${status.toLowerCase()}`;
+      badge.className = `rc-badge ${status}`;
+      if (status === "FAILED" && findingsCount > 0) {
+        badge.textContent = `${findingsCount} ISSUE${findingsCount > 1 ? "S" : ""}`;
+      } else {
+        badge.textContent = status;
+      }
+    }
+  }
+
+  function addEventToStream(ev) {
+    if (!eventStreamList) return;
+    const row = document.createElement("div");
+    row.className = `event-row ${ev.status || "INFO"}`;
+    const timeStr = (ev.timestamp ? ev.timestamp.slice(11, 19) : new Date().toLocaleTimeString());
+    row.innerHTML = `
+      <span class="event-time">${timeStr}</span>
+      <span class="event-stage">${escapeHtml(ev.stage || "AUDIT")}</span>
+      <span class="event-msg">${escapeHtml(ev.message || "")}</span>
+    `;
+    eventStreamList.appendChild(row);
+    eventStreamList.scrollTop = eventStreamList.scrollHeight;
+
+    const count = eventStreamList.querySelectorAll(".event-row").length;
+    if (eventCountBadge) {
+      eventCountBadge.textContent = `${count} events`;
+    }
+  }
+
+  function runInteractiveLivePipeline(scan) {
+    if (!liveAnalysisWorkspace) {
+      loadScanIntoDashboard(scan);
+      loadHealthAndMetrics();
+      return;
+    }
+
+    const resources = scan.discovered_resources || [];
+    const summary = scan.discovery_summary || {};
+    const events = summary.pipeline_events || [];
+
+    liveAnalysisWorkspace.style.display = "block";
+    pipelineCompletionBar.style.display = "none";
+
+    // Scroll workspace into view smoothly
+    liveAnalysisWorkspace.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Reset counters
+    liveDiscoveredCount.textContent = resources.length;
+    liveDiscoveredSub.textContent = `${Object.keys(summary.services_summary || {}).length} AWS services mapped`;
+    liveInspectionStatus.textContent = "Initializing inspection queue...";
+    liveInspectionSub.textContent = `Target: ${scan.target_name}`;
+    liveChecksCount.textContent = "0";
+    livePassedChecks.textContent = "0 passed";
+    liveFailedChecks.textContent = "0 failed";
+    liveFindingsCount.textContent = "0";
+    liveFindingsSub.textContent = "0 Critical / 0 High";
+    liveScoreValue.textContent = "--";
+    liveGradeValue.textContent = "Grade --";
+    eventCountBadge.textContent = "0 events";
+    eventStreamList.innerHTML = "";
+
+    // Render initial resource topology graph with PENDING cards
+    renderTopologyGrid(resources, "PENDING");
+
+    let fastForward = false;
+    if (skipAnimationBtn) {
+      skipAnimationBtn.onclick = () => {
+        fastForward = true;
+      };
+    }
+
+    function setStepper(stepNum) {
+      document.querySelectorAll(".pipeline-step").forEach(el => {
+        const n = parseInt(el.getAttribute("data-step"));
+        el.classList.toggle("completed", n < stepNum);
+        el.classList.toggle("active", n === stepNum);
+      });
+      document.querySelectorAll(".pipeline-step-divider").forEach((el, idx) => {
+        el.classList.toggle("completed", idx + 1 < stepNum);
+      });
+      const stageNames = ["Validation", "AST Parsing", "Resource Inventory", "Sequential Audit", "Findings", "Risk Scoring", "Reports Ready"];
+      if (currentStageBadge) {
+        currentStageBadge.textContent = `Stage ${stepNum}: ${stageNames[stepNum - 1] || "Complete"}`;
+      }
+    }
+
+    async function runStepSequence() {
+      // Step 1: Validation
+      setStepper(1);
+      addEventToStream(events.find(e => e.stage === "VALIDATION") || {
+        timestamp: new Date().toISOString(), stage: "VALIDATION", service: "SYSTEM", message: `Syntax diagnostics verified for ${scan.target_name}`, status: "SUCCESS"
+      });
+      if (!fastForward) await sleep(220);
+
+      // Step 2: AST Parsing
+      setStepper(2);
+      addEventToStream(events.find(e => e.stage === "PARSING") || {
+        timestamp: new Date().toISOString(), stage: "PARSING", service: "PARSER", message: `Parsed ${resources.length} normalized resources into AST graph`, status: "SUCCESS"
+      });
+      if (!fastForward) await sleep(220);
+
+      // Step 3: Inventory
+      setStepper(3);
+      addEventToStream(events.find(e => e.stage === "INVENTORY") || {
+        timestamp: new Date().toISOString(), stage: "INVENTORY", service: "TOPOLOGY", message: "Built AWS service topology with dependency connectors", status: "SUCCESS"
+      });
+      if (!fastForward) await sleep(220);
+
+      // Step 4: Sequential Audit of each resource
+      setStepper(4);
+      let evaluatedChecksTotal = 0;
+      let passedChecksTotal = 0;
+      let failedChecksTotal = 0;
+      let accumulatedFindings = 0;
+      let criticalCount = 0;
+      let highCount = 0;
+
+      for (let i = 0; i < resources.length; i++) {
+        const res = resources[i];
+        liveInspectionStatus.textContent = `Auditing ${res.resource_id}`;
+        liveInspectionSub.textContent = `Resource ${i + 1} of ${resources.length} (${res.resource_type})`;
+
+        // Pulse card
+        updateResourceCardStatus(res.resource_id, "ANALYSING");
+
+        addEventToStream({
+          timestamp: new Date().toISOString(),
+          stage: "INSPECTION",
+          service: res.service,
+          message: `Auditing ${res.resource_id} (${res.resource_type}) on line ${res.line_number || 1}`,
+          status: "INFO"
+        });
+
+        if (!fastForward) await sleep(160);
+
+        const checks = res.checks_evaluated || [];
+        for (const chk of checks) {
+          evaluatedChecksTotal++;
+          if (chk.status === "PASSED") {
+            passedChecksTotal++;
+          } else {
+            failedChecksTotal++;
+            accumulatedFindings++;
+            if (chk.severity === "CRITICAL") criticalCount++;
+            if (chk.severity === "HIGH") highCount++;
+          }
+          liveChecksCount.textContent = evaluatedChecksTotal;
+          livePassedChecks.textContent = `${passedChecksTotal} passed`;
+          liveFailedChecks.textContent = `${failedChecksTotal} failed`;
+          liveFindingsCount.textContent = accumulatedFindings;
+          liveFindingsSub.textContent = `${criticalCount} Critical / ${highCount} High`;
+
+          addEventToStream({
+            timestamp: new Date().toISOString(),
+            stage: "EVALUATION",
+            service: res.service,
+            message: `[${chk.rule_id}] ${chk.rule_name}: ${chk.status}`,
+            status: chk.status === "FAILED" ? "WARNING" : "SUCCESS"
+          });
+
+          if (!fastForward) await sleep(50);
+        }
+
+        updateResourceCardStatus(res.resource_id, res.status, res.findings_count || 0);
+      }
+
+      // Step 5: Findings
+      setStepper(5);
+      addEventToStream({
+        timestamp: new Date().toISOString(),
+        stage: "FINDINGS",
+        service: "SECURITY",
+        message: `Compiled ${scan.total_findings} security & posture findings with structured evidence`,
+        status: scan.total_findings > 0 ? "WARNING" : "SUCCESS"
+      });
+      if (!fastForward) await sleep(180);
+
+      // Step 6: Risk Scoring
+      setStepper(6);
+      liveScoreValue.textContent = scan.overall_risk_score;
+      liveGradeValue.textContent = `Grade ${scan.risk_grade}`;
+      addEventToStream({
+        timestamp: new Date().toISOString(),
+        stage: "SCORING",
+        service: "ANALYTICS",
+        message: `Calculated Well-Architected Risk Score: ${scan.overall_risk_score} (Grade ${scan.risk_grade})`,
+        status: "SUCCESS"
+      });
+      if (!fastForward) await sleep(180);
+
+      // Step 7: Reports Ready
+      setStepper(7);
+      addEventToStream({
+        timestamp: new Date().toISOString(),
+        stage: "REPORTING",
+        service: "REPORTS",
+        message: "Audit records persisted. Downloadable HTML, Markdown, and JSON reports compiled.",
+        status: "SUCCESS"
+      });
+
+      // Complete!
+      document.querySelectorAll(".pipeline-step").forEach(el => el.classList.add("completed"));
+      document.querySelectorAll(".pipeline-step-divider").forEach(el => el.classList.add("completed"));
+      if (currentStageBadge) {
+        currentStageBadge.textContent = "Pipeline Completed";
+        currentStageBadge.className = "stage-pill active";
+      }
+      liveInspectionStatus.textContent = "Inspection Finished";
+      liveInspectionSub.textContent = `Assessed ${resources.length} resources across 7 dimensions`;
+
+      // Show Completion Bar
+      if (pipelineCompletionBar) {
+        pipelineCompletionBar.style.display = "flex";
+        pcSummaryTitle.textContent = `Assessment Complete: Grade ${scan.risk_grade} (${scan.overall_risk_score}/100)`;
+        pcSummaryDetails.textContent = `${resources.length} resources audited &bull; ${evaluatedChecksTotal} checks &bull; ${scan.total_findings} findings detected`;
+
+        pcViewFindingsBtn.onclick = () => {
+          loadScanIntoDashboard(scan);
+          switchView("view-findings");
+        };
+
+        pcViewDashboardBtn.onclick = () => {
+          loadScanIntoDashboard(scan);
+          switchView("view-dashboard");
+        };
+
+        pcDownloadHtmlBtn.href = `/api/v1/scan/${scan.scan_id}/report?format=html`;
+      }
+
+      loadScanIntoDashboard(scan);
+      loadHealthAndMetrics();
+    }
+
+    runStepSequence();
+  }
+
+  function openResourceInspector(res) {
+    if (!res || !resourceModalBackdrop) return;
+
+    resModalService.textContent = formatServiceName(res.service);
+    resModalId.textContent = res.resource_id;
+    resModalType.textContent = res.resource_type;
+    resModalLine.textContent = res.line_number || "1";
+    resModalStatus.className = `rc-badge ${res.status}`;
+    resModalStatus.textContent = res.status;
+    resModalRelations.textContent = (res.relationships && res.relationships.length > 0)
+      ? res.relationships.join(", ")
+      : "None";
+
+    const checks = res.checks_evaluated || [];
+    let checksHtml = "";
+    if (checks.length === 0) {
+      checksHtml = '<div style="font-size: 12px; color: var(--color-text-muted);">No specific rule failures. Baseline compliance checks satisfied.</div>';
+    } else {
+      checks.forEach(c => {
+        const isFail = c.status === "FAILED";
+        checksHtml += `
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-xs); border: 1px solid var(--color-border); background: ${isFail ? "var(--color-critical-bg)" : "#FAF8F5"};">
+            <div>
+              <div style="font-weight: 700; font-size: 12px; color: ${isFail ? "var(--color-critical)" : "var(--color-text-main)"};">[${escapeHtml(c.rule_id)}] ${escapeHtml(c.rule_name)}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 3px;">${escapeHtml(c.details || "")}</div>
+            </div>
+            <span class="severity-tag ${isFail ? c.severity : "LOW"}">${escapeHtml(c.status)}</span>
+          </div>`;
+      });
+    }
+    resModalChecksList.innerHTML = checksHtml;
+
+    resModalProps.textContent = JSON.stringify(res.properties || {}, null, 2);
+    resourceModalBackdrop.style.display = "flex";
+  }
+
+  if (resModalCloseBtn) {
+    resModalCloseBtn.addEventListener("click", () => {
+      resourceModalBackdrop.style.display = "none";
+    });
+  }
+
+  if (resourceModalBackdrop) {
+    resourceModalBackdrop.addEventListener("click", (e) => {
+      if (e.target === resourceModalBackdrop) {
+        resourceModalBackdrop.style.display = "none";
+      }
+    });
+  }
 
     xhr.send(formData);
   });

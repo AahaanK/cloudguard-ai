@@ -217,16 +217,24 @@
               <span style="font-size: 11px; color: var(--color-text-muted); margin-left: 6px;">(Max 10 MB per file)</span>
             </div>
 
-            <input type="file" id="fileInput" accept=".tf,.json,.yaml,.yml" style="display: none;">
-            <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="12" y1="18" x2="12" y2="12"/>
-                <line x1="9" y1="15" x2="15" y2="15"/>
-              </svg>
-              Select Blueprint File
-            </button>
+            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
+              <input type="file" id="fileInput" accept=".tf,.json,.yaml,.yml" style="display: none;">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="12" y1="18" x2="12" y2="12"/>
+                  <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+                Select Blueprint File
+              </button>
+              <button type="button" class="btn btn-primary" id="loadSampleBlueprintBtn" style="background-color: #202A30; border-color: #202A30;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                Load Safe Sample Blueprint (Terraform)
+              </button>
+            </div>
           </div>
 
           <!-- Selected File Pane -->
@@ -263,6 +271,154 @@
           </div>
 
           <div class="status-box" id="uploadStatusBox"></div>
+        </div>
+      </div>
+
+      <!-- Live Analysis & Infrastructure Discovery Workspace -->
+      <div id="liveAnalysisWorkspace" class="card" style="display: none; margin-top: 24px;">
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div class="card-title-group">
+            <span class="status-indicator-dot verified" id="pipelineLivePulse"></span>
+            <span class="card-title">Live Infrastructure Analysis Pipeline</span>
+            <span class="stage-pill active" id="currentStageBadge">Stage 1: Validation</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" class="btn btn-secondary" id="skipAnimationBtn" style="padding: 4px 10px; font-size: 11px;">Fast-Forward</button>
+          </div>
+        </div>
+
+        <!-- 7 Stage Stepper -->
+        <div class="pipeline-stepper" id="pipelineStepper">
+          <div class="pipeline-step active" data-step="1">
+            <div class="step-num">1</div>
+            <div class="step-label">Validation</div>
+          </div>
+          <div class="pipeline-step-divider"></div>
+          <div class="pipeline-step" data-step="2">
+            <div class="step-num">2</div>
+            <div class="step-label">AST Parsing</div>
+          </div>
+          <div class="pipeline-step-divider"></div>
+          <div class="pipeline-step" data-step="3">
+            <div class="step-num">3</div>
+            <div class="step-label">Inventory</div>
+          </div>
+          <div class="pipeline-step-divider"></div>
+          <div class="pipeline-step" data-step="4">
+            <div class="step-num">4</div>
+            <div class="step-label">Sequential Audit</div>
+          </div>
+          <div class="pipeline-step-divider"></div>
+          <div class="pipeline-step" data-step="5">
+            <div class="step-num">5</div>
+            <div class="step-label">Findings</div>
+          </div>
+          <div class="pipeline-step-divider"></div>
+          <div class="pipeline-step" data-step="6">
+            <div class="step-num">6</div>
+            <div class="step-label">Risk Scoring</div>
+          </div>
+          <div class="pipeline-step-divider"></div>
+          <div class="pipeline-step" data-step="7">
+            <div class="step-num">7</div>
+            <div class="step-label">Reports</div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- Real-Time Metrics Row -->
+          <div class="pipeline-metrics-row">
+            <div class="pipeline-metric-card">
+              <div class="pm-title">Discovered Resources</div>
+              <div class="pm-value" id="liveDiscoveredCount">0</div>
+              <div class="pm-subtext" id="liveDiscoveredSub">Waiting for parser</div>
+            </div>
+            <div class="pipeline-metric-card">
+              <div class="pm-title">Inspection Status</div>
+              <div class="pm-value" id="liveInspectionStatus" style="font-size: 16px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Idle</div>
+              <div class="pm-subtext" id="liveInspectionSub">--</div>
+            </div>
+            <div class="pipeline-metric-card">
+              <div class="pm-title">Checks Evaluated</div>
+              <div class="pm-value" id="liveChecksCount">0</div>
+              <div class="pm-subtext"><span id="livePassedChecks" style="color: #2e7d32; font-weight: 600;">0 passed</span> &bull; <span id="liveFailedChecks" style="color: #c62828; font-weight: 600;">0 failed</span></div>
+            </div>
+            <div class="pipeline-metric-card">
+              <div class="pm-title">Findings Detected</div>
+              <div class="pm-value" id="liveFindingsCount" style="color: var(--color-critical);">0</div>
+              <div class="pm-subtext" id="liveFindingsSub">0 Critical / 0 High</div>
+            </div>
+            <div class="pipeline-metric-card" style="border-left: 3px solid var(--color-primary);">
+              <div class="pm-title">Risk Assessment</div>
+              <div class="pm-value" id="liveScoreValue" style="color: var(--color-primary);">--</div>
+              <div class="pm-subtext" id="liveGradeValue">Grade --</div>
+            </div>
+          </div>
+
+          <!-- Main Visualization Columns: Left = Interactive Architecture Map, Right = Live Activity Stream -->
+          <div class="pipeline-main-layout">
+            <!-- Left Column: Interactive Resource Graph -->
+            <div class="resource-graph-container">
+              <div class="rg-header">
+                <div>
+                  <div style="font-weight: 700; font-size: 13px; color: var(--color-text-main);">
+                    Discovered Infrastructure Topology &amp; Inspection Queue
+                  </div>
+                  <div style="font-size: 11px; color: var(--color-text-muted);">
+                    Click any resource card to inspect evaluated rules &amp; properties
+                  </div>
+                </div>
+              </div>
+              <div class="rg-grid" id="resourceGraphGrid">
+                <!-- Populated dynamically: Service groups (VPC, Security Group, EC2, S3, RDS, IAM) with cards -->
+              </div>
+            </div>
+
+            <!-- Right Column: Real-Time Event Stream -->
+            <div class="event-stream-container">
+              <div class="es-header">
+                <div style="font-weight: 700; font-size: 13px; color: var(--color-text-main);">Chronological Analysis Feed</div>
+                <span class="chip" id="eventCountBadge">0 events</span>
+              </div>
+              <div class="es-list" id="eventStreamList">
+                <!-- Populated dynamically with live events -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Post-Analysis Action Bar (shown when complete) -->
+          <div id="pipelineCompletionBar" class="pipeline-completion-bar" style="display: none;">
+            <div class="pc-text">
+              <div style="font-weight: 700; font-size: 14px; color: var(--color-text-main);" id="pcSummaryTitle">Assessment Complete</div>
+              <div style="font-size: 12px; color: var(--color-text-secondary);" id="pcSummaryDetails">All 7 pipeline stages executed. Persistent records created.</div>
+            </div>
+            <div class="pc-actions">
+              <button type="button" class="btn btn-secondary" id="pcViewFindingsBtn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                View Findings
+              </button>
+              <button type="button" class="btn btn-secondary" id="pcViewDashboardBtn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Full Dashboard
+              </button>
+              <a href="#" class="btn btn-primary" id="pcDownloadHtmlBtn" target="_blank">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 6 2 18 2 18 9"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+                Download Report
+              </a>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
@@ -693,6 +849,31 @@
       </div>
     </div>
   </aside>
+
+  <!-- Resource Detail Inspector Modal -->
+  <div id="resourceModalBackdrop" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" id="resourceModal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-pretitle" id="resModalService">AWS Resource</div>
+          <h3 class="modal-title" id="resModalId">aws_resource.id</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="resModalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="res-modal-meta">
+          <div><strong>Type:</strong> <span id="resModalType">--</span></div>
+          <div><strong>Line Number:</strong> <span id="resModalLine">--</span></div>
+          <div><strong>Status:</strong> <span id="resModalStatus" class="rc-badge">--</span></div>
+          <div><strong>Relationships:</strong> <span id="resModalRelations">None</span></div>
+        </div>
+        <h4 style="margin: 16px 0 8px 0; font-size: 13px; font-weight: 700; color: var(--color-text-main);">Evaluated Security &amp; Compliance Checks</h4>
+        <div id="resModalChecksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        <h4 style="margin: 16px 0 8px 0; font-size: 13px; font-weight: 700; color: var(--color-text-main);">Declared Properties</h4>
+        <pre id="resModalProps" style="font-family: var(--font-mono); font-size: 11px; background: var(--color-surface-subtle); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border-subtle); max-height: 180px; overflow-y: auto; color: var(--color-text-main);"></pre>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/js/app.js"></script>
 </body>
