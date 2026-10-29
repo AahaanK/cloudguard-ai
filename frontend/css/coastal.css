@@ -1045,6 +1045,20 @@ body {
   color: var(--color-text-main);
 }
 
+.btn-sample {
+  background-color: var(--color-charcoal);
+  border-color: var(--color-charcoal);
+  color: #FFFFFF !important;
+  box-shadow: 0 1px 3px rgba(32, 42, 48, 0.25);
+}
+
+.btn-sample:hover {
+  background-color: #151C20;
+  border-color: #151C20;
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 6px rgba(32, 42, 48, 0.3);
+}
+
 .btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--color-primary-glow);

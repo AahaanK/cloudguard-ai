@@ -230,6 +230,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.remove("dragover");
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleSelectedFile(e.dataTransfer.files[0]);
     }
@@ -270,6 +273,12 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedFileSize.textContent = `(${formatBytes(file.size)})`;
     selectedFilePane.style.display = "flex";
     uploadStatusBox.style.display = "none";
+    if (liveAnalysisWorkspace) {
+      liveAnalysisWorkspace.style.display = "none";
+    }
+    if (progressContainer) {
+      progressContainer.style.display = "none";
+    }
   }
 
   analyzeBtn.addEventListener("click", () => {
@@ -307,14 +316,21 @@ document.addEventListener("DOMContentLoaded", () => {
           const res = JSON.parse(xhr.responseText);
           const scan = res.data;
           
+          // Hydrate dashboard and application state immediately
+          loadScanIntoDashboard(scan);
+          loadHealthAndMetrics();
+
           uploadStatusBox.className = "status-box success";
           uploadStatusBox.innerHTML = `<strong>Analysis Complete:</strong> Assessed <code>${scan.target_name}</code> with Risk Score <strong>${scan.overall_risk_score}</strong> (Grade ${scan.risk_grade}). Found ${scan.total_findings} issues. <button type="button" class="btn btn-secondary" id="viewDashQuickBtn" style="padding: 2px 8px; margin-left: 8px;">View Dashboard</button>`;
           uploadStatusBox.style.display = "block";
 
-          document.getElementById("viewDashQuickBtn").addEventListener("click", () => {
-            loadScanIntoDashboard(scan);
-            switchView("view-dashboard");
-          });
+          const quickBtn = document.getElementById("viewDashQuickBtn");
+          if (quickBtn) {
+            quickBtn.addEventListener("click", () => {
+              loadScanIntoDashboard(scan);
+              switchView("view-dashboard");
+            });
+          }
 
           // Run interactive live pipeline visualizer
           runInteractiveLivePipeline(scan);
@@ -712,9 +728,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
-    xhr.send(formData);
-  });
 
   function showUploadError(msg) {
     uploadStatusBox.className = "status-box error";
