@@ -571,6 +571,24 @@
         </div>
       </div>
 
+      <!-- Before-and-After Security Remediation Comparison Card -->
+      <div id="remediationComparisonCard" class="card" style="margin-top: 20px; display: none; border-color: #287fa3;">
+        <div class="card-header" style="background: rgba(40, 127, 163, 0.04);">
+          <div class="card-title-group">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span class="card-title">Remediation Lifecycle: Before vs After Verification</span>
+          </div>
+          <span id="remediationDeltaBadge" style="font-size: 11.5px; font-weight: 600; color: #2d5a27; background: #e8f4ec; padding: 3px 10px; border-radius: 3px;">Net Risk Reduction: -- pts</span>
+        </div>
+        <div class="card-body">
+          <div id="remediationComparisonContent">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+      </div>
+
       <!-- Severity Distribution Row -->
       <div class="severity-row">
         <div class="severity-card critical">
