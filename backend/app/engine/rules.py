@@ -122,7 +122,7 @@ class RuleEvaluator:
 
                 # Check SEC-S3-001: Public Read/Write Access
                 total_checks += 1
-                if acl in ("public-read", "public-read-write"):
+                if acl in ("public-read", "public-read-write", "publicread", "publicreadwrite"):
                     failed_checks += 1
                     # Check compensating control: Does attached public access block block public ACLs?
                     has_compensating_pab = False
@@ -483,7 +483,7 @@ class RuleEvaluator:
             # -------------------------------------------------------------
             # SECURITY GROUP CHECKS
             # -------------------------------------------------------------
-            if "security_group" in r_type:
+            if "security_group" in r_type or "securitygroup" in r_type:
                 # Collect all ingress rules: both inline and attached standalone rules (_rules)
                 ingress_list = []
                 # Inline ingress

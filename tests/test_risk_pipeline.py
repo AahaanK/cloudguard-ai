@@ -26,6 +26,14 @@ resource "aws_s3_bucket" "secure_assets" {
   server_side_encryption_configuration = "AES256"
 }
 
+resource "aws_s3_bucket_public_access_block" "secure_assets_pab" {
+  bucket = aws_s3_bucket.secure_assets.id
+  block_public_acls   = true
+  block_public_policy = true
+  ignore_public_acls  = true
+  restrict_public_buckets = true
+}
+
 resource "aws_db_instance" "production_db" {
   identifier          = "prod-aurora"
   instance_class      = "db.r5.large"

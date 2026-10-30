@@ -497,6 +497,21 @@
             </svg>
             Printable Report
           </a>
+          <button type="button" id="dashExportRemediatedBtn" class="btn btn-secondary btn-sm" style="display: none;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Corrected Blueprint
+          </button>
+          <button type="button" id="dashRescanRemediatedBtn" class="btn btn-primary btn-sm" style="display: none;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Rescan &amp; Compare Fixes
+          </button>
           <button type="button" id="dashPresignedS3Btn" class="btn btn-secondary btn-sm">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -909,6 +924,43 @@
             <button type="button" class="btn btn-secondary btn-sm" id="copyCliBtn" style="padding: 2px 8px; font-size: 11px;">Copy Command</button>
           </div>
           <div class="code-block" id="drawerCliBlock"></div>
+        </div>
+      </div>
+
+      <!-- Intelligent Remediation Lifecycle & Preview Box -->
+      <div id="drawerRemediationLifecycleContainer" class="drawer-section" style="margin-top: 14px; padding-top: 18px; border-top: 1px solid var(--color-border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="drawer-section-title" style="margin-bottom: 0;">Contextual Remediation &amp; Fix Preview</span>
+            <span id="drawerRemStatusBadge" style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; background: var(--color-surface-muted); color: var(--color-text-secondary); border: 1px solid var(--color-border); text-transform: uppercase;">Not Started</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="generateFixPreviewBtn" style="padding: 3px 10px; font-size: 11px;">Preview Fix &rarr;</button>
+        </div>
+
+        <div id="drawerRemPreviewContent" style="display: none; margin-top: 10px;">
+          <!-- Validation Result Alert -->
+          <div id="drawerRemValidationBox" style="padding: 8px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 10px;"></div>
+
+          <!-- Rationale & Improvement -->
+          <div style="font-size: 12.5px; color: var(--color-text-main); margin-bottom: 8px; line-height: 1.4;">
+            <div style="margin-bottom: 4px;"><strong>Remediation Strategy:</strong> <span id="drawerRemExplanation"></span></div>
+            <div style="margin-bottom: 4px;"><strong>Security Improvement:</strong> <span id="drawerRemSecurityGain"></span></div>
+            <div style="color: #8c6b12;"><strong>Potential Side Effects:</strong> <span id="drawerRemSideEffects"></span></div>
+          </div>
+
+          <!-- Unified Diff Viewer -->
+          <div class="code-container" style="margin-top: 10px;">
+            <div class="code-header-bar">
+              <span class="code-badge">UNIFIED CODE DIFF</span>
+              <button type="button" class="btn btn-secondary btn-sm" id="copyDiffBtn" style="padding: 2px 8px; font-size: 11px;">Copy Diff</button>
+            </div>
+            <pre class="code-block" id="drawerRemDiffBlock" style="color: var(--color-text-main); background: #faf9f6; max-height: 220px; overflow-y: auto; font-family: var(--font-mono); font-size: 11.5px;"></pre>
+          </div>
+
+          <!-- Explicit User Approval Button -->
+          <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-primary btn-sm" id="approveFixBtn" style="padding: 5px 12px; font-size: 11.5px;">Approve &amp; Stage Fix</button>
+          </div>
         </div>
       </div>
 

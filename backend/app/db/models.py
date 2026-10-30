@@ -28,6 +28,9 @@ class Finding(BaseModel):
     cli_command: Optional[str] = None
     ai_remediation: Optional[str] = None
     remediation_source: str = "DETERMINISTIC"  # DETERMINISTIC or BEDROCK_AI
+    remediation_status: str = "Not Started"  # Not Started, Fix Generated, Awaiting Approval, Validated, Exported, Resolved, Partially Resolved, Unresolved, Verification Failed
+    remediation_preview: Optional[Dict[str, Any]] = None
+    remediation_history: List[Dict[str, Any]] = Field(default_factory=list)
     line_number: Optional[int] = None
     file_name: Optional[str] = None
     actual_config: Optional[str] = None
@@ -58,6 +61,11 @@ class ScanJob(BaseModel):
     score_explanation: Optional[Dict[str, Any]] = None
     check_statistics: Dict[str, Any] = Field(default_factory=dict)
     compound_risks: List[Dict[str, Any]] = Field(default_factory=list)
+    corrected_file_key: Optional[str] = None
+    corrected_content: Optional[str] = None
+    staged_remediations: Dict[str, Any] = Field(default_factory=dict)
+    comparison_data: Optional[Dict[str, Any]] = None
+    parent_scan_id: Optional[str] = None
     file_key: Optional[str] = None
     storage_backend: str = "local"
     created_at: str = Field(default_factory=utc_now_iso)

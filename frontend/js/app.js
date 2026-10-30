@@ -132,6 +132,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const scoreExplanationContent = document.getElementById("scoreExplanationContent");
   const compoundRisksCard = document.getElementById("compoundRisksCard");
   const compoundRisksContent = document.getElementById("compoundRisksContent");
+  const drawerRemediationLifecycleContainer = document.getElementById("drawerRemediationLifecycleContainer");
+  const drawerRemStatusBadge = document.getElementById("drawerRemStatusBadge");
+  const generateFixPreviewBtn = document.getElementById("generateFixPreviewBtn");
+  const drawerRemPreviewContent = document.getElementById("drawerRemPreviewContent");
+  const drawerRemValidationBox = document.getElementById("drawerRemValidationBox");
+  const drawerRemExplanation = document.getElementById("drawerRemExplanation");
+  const drawerRemSecurityGain = document.getElementById("drawerRemSecurityGain");
+  const drawerRemSideEffects = document.getElementById("drawerRemSideEffects");
+  const drawerRemDiffBlock = document.getElementById("drawerRemDiffBlock");
+  const copyDiffBtn = document.getElementById("copyDiffBtn");
+  const approveFixBtn = document.getElementById("approveFixBtn");
+  const dashExportRemediatedBtn = document.getElementById("dashExportRemediatedBtn");
+  const dashRescanRemediatedBtn = document.getElementById("dashRescanRemediatedBtn");
+  const remediationComparisonCard = document.getElementById("remediationComparisonCard");
+  const remediationComparisonContent = document.getElementById("remediationComparisonContent");
+  const remediationDeltaBadge = document.getElementById("remediationDeltaBadge");
 
   // Live AWS Audit View
   const liveAwsIdentityDetails = document.getElementById("liveAwsIdentityDetails");
@@ -873,6 +889,69 @@ document.addEventListener("DOMContentLoaded", () => {
       compoundRisksCard.style.display = "none";
     }
 
+    // Show / hide Export & Rescan buttons for remediated blueprint
+    const hasStagedOrCorrected = (scan.staged_remediations && Object.keys(scan.staged_remediations).length > 0) || scan.corrected_content || scan.corrected_file_key;
+    if (dashExportRemediatedBtn) dashExportRemediatedBtn.style.display = hasStagedOrCorrected ? "inline-flex" : "none";
+    if (dashRescanRemediatedBtn) dashRescanRemediatedBtn.style.display = hasStagedOrCorrected ? "inline-flex" : "none";
+
+    // Render Before-and-After Remediation Comparison Card
+    if (scan.comparison_data && remediationComparisonCard && remediationComparisonContent) {
+      const cmp = scan.comparison_data;
+      if (remediationDeltaBadge) {
+        remediationDeltaBadge.textContent = `Net Risk Reduction: -${cmp.score_delta || 0} pts`;
+      }
+
+      let resolvedRows = "";
+      (cmp.resolved_findings || []).forEach(rf => {
+        resolvedRows += `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #e2ddd5; font-size:12px;">
+            <span><code style="color:#287fa3; font-weight:600;">${rf.rule_id}</code>: ${rf.title} (<strong>${rf.resource_id}</strong>)</span>
+            <span style="color:#2d5a27; font-weight:600; background:#e8f4ec; padding:2px 8px; border-radius:3px;">✓ Verified Resolved</span>
+          </div>`;
+      });
+
+      let partiallyRows = "";
+      (cmp.partially_resolved_findings || []).forEach(pf => {
+        partiallyRows += `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #e2ddd5; font-size:12px;">
+            <span><code style="color:#8c6b12; font-weight:600;">${pf.rule_id}</code>: ${pf.title} (<strong>${pf.resource_id}</strong>)</span>
+            <span style="color:#8c6b12; font-weight:600; background:#fdf3d8; padding:2px 8px; border-radius:3px;">Partially Resolved (${pf.severity_before} &rarr; ${pf.severity_after})</span>
+          </div>`;
+      });
+
+      let unresolvedRows = "";
+      (cmp.unresolved_findings || []).forEach(uf => {
+        unresolvedRows += `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #e2ddd5; font-size:12px;">
+            <span><code style="color:#8b0000; font-weight:600;">${uf.rule_id}</code>: ${uf.title} (<strong>${uf.resource_id}</strong>)</span>
+            <span style="color:#8b0000; font-weight:600; background:#fbeae5; padding:2px 8px; border-radius:3px;">Unresolved</span>
+          </div>`;
+      });
+
+      remediationComparisonContent.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+          <div style="background: var(--color-surface-muted); padding: 12px; border-radius: 4px; border: 1px solid var(--color-border); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted);">Risk Score Before</div>
+            <div style="font-size: 22px; font-weight: 700; color: #8b0000; margin-top: 4px;">${cmp.score_before} <span style="font-size: 14px;">(Grade ${cmp.grade_before})</span></div>
+          </div>
+          <div style="background: var(--color-surface-muted); padding: 12px; border-radius: 4px; border: 1px solid var(--color-border); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted);">Remediated Risk Score</div>
+            <div style="font-size: 22px; font-weight: 700; color: #2d5a27; margin-top: 4px;">${cmp.score_after} <span style="font-size: 14px;">(Grade ${cmp.grade_after})</span></div>
+          </div>
+          <div style="background: var(--color-surface-muted); padding: 12px; border-radius: 4px; border: 1px solid var(--color-border); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted);">Resolved Findings</div>
+            <div style="font-size: 22px; font-weight: 700; color: #287fa3; margin-top: 4px;">${cmp.resolved_count || 0} / ${cmp.counts_before ? cmp.counts_before.total : 0}</div>
+          </div>
+        </div>
+        ${resolvedRows ? `<div style="margin-top:12px;"><strong style="font-size:12px; color:#2d5a27;">Resolved Findings (${cmp.resolved_count || 0}):</strong>${resolvedRows}</div>` : ''}
+        ${partiallyRows ? `<div style="margin-top:12px;"><strong style="font-size:12px; color:#8c6b12;">Partially Resolved Findings:</strong>${partiallyRows}</div>` : ''}
+        ${unresolvedRows ? `<div style="margin-top:12px;"><strong style="font-size:12px; color:#8b0000;">Remaining Unresolved Findings (${cmp.unresolved_count || 0}):</strong>${unresolvedRows}</div>` : ''}
+      `;
+      remediationComparisonCard.style.display = "block";
+    } else if (remediationComparisonCard) {
+      remediationComparisonCard.style.display = "none";
+    }
+
     // Render findings
     renderFindingsTable(allFindings);
   }
@@ -907,8 +986,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <td style="font-weight: 600; color: var(--color-text-main);">${f.title}</td>
           <td><code style="font-size: 11px; color: var(--color-text-secondary);">${f.resource_id}</code></td>
           <td><span style="font-size: 12px; font-weight: 500; color: var(--color-text-secondary);">${f.dimension}</span></td>
-          <td style="text-align: center;">
-            <button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 3px 10px; font-size: 11.5px;">Inspect &rarr;</button>
+          <td style="text-align: center; white-space: nowrap;">
+            <button type="button" class="btn btn-secondary preview-fix-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px; margin-right: 4px;">Preview Fix</button>
+            <button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px;">Inspect &rarr;</button>
           </td>
         </tr>
       `;
@@ -920,6 +1000,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const id = b.getAttribute("data-id");
         const found = allFindings.find(item => item.finding_id === id);
         if (found) openFindingDrawer(found);
+      });
+    });
+
+    document.querySelectorAll(".preview-fix-btn").forEach(b => {
+      b.addEventListener("click", () => {
+        const id = b.getAttribute("data-id");
+        const found = allFindings.find(item => item.finding_id === id);
+        if (found) {
+          openFindingDrawer(found);
+          triggerRemediationPreview(found);
+        }
       });
     });
   }
@@ -1021,6 +1112,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render verification panel
     renderDrawerVerificationDetails(f);
 
+    // Render remediation lifecycle panel
+    renderRemediationLifecycleDrawer(f);
+
     // AI Remediation Section
     if (f.ai_remediation) {
       drawerAiStatus.style.display = "block";
@@ -1111,6 +1205,208 @@ document.addEventListener("DOMContentLoaded", () => {
       } finally {
         verifyFindingBtn.disabled = false;
         verifyFindingBtn.innerHTML = "<span>🔍 Verify Finding</span>";
+      }
+    });
+  }
+
+  function renderRemediationLifecycleDrawer(f) {
+    if (!drawerRemStatusBadge) return;
+    const remStatus = f.remediation_status || "Not Started";
+    drawerRemStatusBadge.textContent = remStatus;
+
+    if (remStatus === "Resolved") {
+      drawerRemStatusBadge.style.background = "#e8f4ec";
+      drawerRemStatusBadge.style.color = "#2d5a27";
+      drawerRemStatusBadge.style.border = "1px solid rgba(45, 90, 39, 0.25)";
+    } else if (remStatus === "Validated") {
+      drawerRemStatusBadge.style.background = "#eef4f8";
+      drawerRemStatusBadge.style.color = "#287fa3";
+      drawerRemStatusBadge.style.border = "1px solid rgba(40, 127, 163, 0.25)";
+    } else if (remStatus === "Awaiting Approval" || remStatus === "Fix Generated") {
+      drawerRemStatusBadge.style.background = "#fdf3d8";
+      drawerRemStatusBadge.style.color = "#8c6b12";
+      drawerRemStatusBadge.style.border = "1px solid rgba(140, 107, 18, 0.25)";
+    } else if (remStatus === "Exported") {
+      drawerRemStatusBadge.style.background = "#eef4f8";
+      drawerRemStatusBadge.style.color = "#1d5872";
+      drawerRemStatusBadge.style.border = "1px solid rgba(29, 88, 114, 0.25)";
+    } else if (remStatus === "Unresolved" || remStatus === "Verification Failed") {
+      drawerRemStatusBadge.style.background = "#fbeae5";
+      drawerRemStatusBadge.style.color = "#8b0000";
+      drawerRemStatusBadge.style.border = "1px solid rgba(139, 0, 0, 0.25)";
+    } else {
+      drawerRemStatusBadge.style.background = "var(--color-surface-muted)";
+      drawerRemStatusBadge.style.color = "var(--color-text-secondary)";
+      drawerRemStatusBadge.style.border = "1px solid var(--color-border)";
+    }
+
+    if (f.remediation_preview) {
+      const p = f.remediation_preview;
+      const v = p.validation || {};
+
+      if (drawerRemExplanation) drawerRemExplanation.textContent = p.explanation || f.description;
+      if (drawerRemSecurityGain) drawerRemSecurityGain.textContent = p.security_improvement || f.remediation_summary;
+      if (drawerRemSideEffects) drawerRemSideEffects.textContent = p.side_effects || "None identified.";
+      if (drawerRemDiffBlock) drawerRemDiffBlock.textContent = p.diff || p.proposed_snippet;
+
+      if (drawerRemValidationBox) {
+        if (v.security_correctness) {
+          drawerRemValidationBox.style.background = "#e8f4ec";
+          drawerRemValidationBox.style.border = "1px solid #c2e2cc";
+          drawerRemValidationBox.style.color = "#2d5a27";
+          drawerRemValidationBox.innerHTML = `<strong>✓ Validated Safe:</strong> Syntactically valid AST; target finding eliminated with zero regressions. Candidate score: <strong>${v.candidate_risk_score !== undefined ? v.candidate_risk_score : '--'} (Grade ${v.candidate_risk_grade || '--'})</strong>.`;
+        } else {
+          drawerRemValidationBox.style.background = "#fdf3d8";
+          drawerRemValidationBox.style.border = "1px solid #ebd9a8";
+          drawerRemValidationBox.style.color = "#8c6b12";
+          drawerRemValidationBox.innerHTML = `<strong>⚠️ Validation Notice:</strong> ${v.validation_errors && v.validation_errors.length ? v.validation_errors.join('; ') : 'Review diff carefully prior to applying.'}`;
+        }
+      }
+
+      if (drawerRemPreviewContent) drawerRemPreviewContent.style.display = "block";
+    } else {
+      if (drawerRemPreviewContent) drawerRemPreviewContent.style.display = "none";
+    }
+  }
+
+  async function triggerRemediationPreview(f) {
+    if (!f) return;
+    const scanId = (activeScan && activeScan.scan_id) || f.scan_id;
+    if (!scanId) {
+      alert("No active scan associated with this finding.");
+      return;
+    }
+
+    if (generateFixPreviewBtn) {
+      generateFixPreviewBtn.disabled = true;
+      generateFixPreviewBtn.textContent = "Analyzing AST...";
+    }
+
+    try {
+      const res = await fetch(`/api/v1/scan/${scanId}/findings/${f.finding_id}/remediation/preview`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.detail || "Failed to generate remediation preview.");
+      }
+
+      f.remediation_preview = data.preview;
+      f.remediation_status = data.remediation_status;
+
+      renderRemediationLifecycleDrawer(f);
+      renderFindingsTable(allFindings);
+    } catch (err) {
+      alert(`Remediation Preview Error: ${err.message}`);
+    } finally {
+      if (generateFixPreviewBtn) {
+        generateFixPreviewBtn.disabled = false;
+        generateFixPreviewBtn.textContent = "Preview Fix →";
+      }
+    }
+  }
+
+  async function triggerApproveFix(f) {
+    if (!f) return;
+    const scanId = (activeScan && activeScan.scan_id) || f.scan_id;
+    if (!scanId) {
+      alert("No active scan associated with this finding.");
+      return;
+    }
+
+    if (approveFixBtn) {
+      approveFixBtn.disabled = true;
+      approveFixBtn.textContent = "Staging Fix...";
+    }
+
+    try {
+      const res = await fetch(`/api/v1/scan/${scanId}/findings/${f.finding_id}/remediation/approve`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.detail || "Failed to approve remediation.");
+      }
+
+      f.remediation_status = data.remediation_status;
+      if (activeScan) {
+        if (!activeScan.staged_remediations) activeScan.staged_remediations = {};
+        activeScan.staged_remediations[f.finding_id] = f.remediation_preview;
+        if (dashExportRemediatedBtn) dashExportRemediatedBtn.style.display = "inline-flex";
+        if (dashRescanRemediatedBtn) dashRescanRemediatedBtn.style.display = "inline-flex";
+      }
+
+      renderRemediationLifecycleDrawer(f);
+      renderFindingsTable(allFindings);
+      alert(`Fix approved and staged into corrected blueprint (${data.staged_count} staged). You can export the blueprint or run Rescan & Verify from the Dashboard.`);
+    } catch (err) {
+      alert(`Approval Error: ${err.message}`);
+    } finally {
+      if (approveFixBtn) {
+        approveFixBtn.disabled = false;
+        approveFixBtn.textContent = "Approve & Stage Fix";
+      }
+    }
+  }
+
+  if (generateFixPreviewBtn) {
+    generateFixPreviewBtn.addEventListener("click", () => {
+      if (currentDrawerFinding) triggerRemediationPreview(currentDrawerFinding);
+    });
+  }
+
+  if (approveFixBtn) {
+    approveFixBtn.addEventListener("click", () => {
+      if (currentDrawerFinding) triggerApproveFix(currentDrawerFinding);
+    });
+  }
+
+  if (copyDiffBtn) {
+    copyDiffBtn.addEventListener("click", () => {
+      if (drawerRemDiffBlock) {
+        navigator.clipboard.writeText(drawerRemDiffBlock.textContent);
+        copyDiffBtn.textContent = "Copied!";
+        setTimeout(() => { copyDiffBtn.textContent = "Copy Diff"; }, 1500);
+      }
+    });
+  }
+
+  if (dashExportRemediatedBtn) {
+    dashExportRemediatedBtn.addEventListener("click", () => {
+      if (!activeScan || !activeScan.scan_id) {
+        alert("No active scan selected.");
+        return;
+      }
+      window.open(`/api/v1/scan/${activeScan.scan_id}/remediation/export?download=true`, "_blank");
+    });
+  }
+
+  if (dashRescanRemediatedBtn) {
+    dashRescanRemediatedBtn.addEventListener("click", async () => {
+      if (!activeScan || !activeScan.scan_id) {
+        alert("No active scan selected.");
+        return;
+      }
+      dashRescanRemediatedBtn.disabled = true;
+      dashRescanRemediatedBtn.textContent = "Rescanning...";
+
+      try {
+        const res = await fetch(`/api/v1/scan/${activeScan.scan_id}/remediation/verify-rescan`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.detail || "Rescan and verification failed.");
+        }
+
+        activeScan = data.original_scan;
+        renderDashboard(activeScan);
+        alert(`Rescan complete! Risk score improved from ${data.comparison.score_before} to ${data.comparison.score_after} (${data.comparison.resolved_count} findings resolved).`);
+      } catch (err) {
+        alert(`Rescan Error: ${err.message}`);
+      } finally {
+        dashRescanRemediatedBtn.disabled = false;
+        dashRescanRemediatedBtn.textContent = "Rescan & Compare Fixes";
       }
     });
   }

@@ -101,6 +101,16 @@ class SQLiteRepository:
                 cursor.execute("ALTER TABLE scans ADD COLUMN check_statistics TEXT DEFAULT '{}'")
             if "compound_risks" not in scan_cols:
                 cursor.execute("ALTER TABLE scans ADD COLUMN compound_risks TEXT DEFAULT '[]'")
+            if "corrected_file_key" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN corrected_file_key TEXT")
+            if "corrected_content" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN corrected_content TEXT")
+            if "staged_remediations" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN staged_remediations TEXT DEFAULT '{}'")
+            if "comparison_data" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN comparison_data TEXT DEFAULT '{}'")
+            if "parent_scan_id" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN parent_scan_id TEXT")
 
             cursor.execute("PRAGMA table_info(findings)")
             find_cols = [c["name"] for c in cursor.fetchall()]
@@ -110,6 +120,12 @@ class SQLiteRepository:
                 cursor.execute("ALTER TABLE findings ADD COLUMN ai_remediation TEXT")
             if "remediation_source" not in find_cols:
                 cursor.execute("ALTER TABLE findings ADD COLUMN remediation_source TEXT DEFAULT 'DETERMINISTIC'")
+            if "remediation_status" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN remediation_status TEXT DEFAULT 'Not Started'")
+            if "remediation_preview" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN remediation_preview TEXT DEFAULT '{}'")
+            if "remediation_history" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN remediation_history TEXT DEFAULT '[]'")
             if "file_name" not in find_cols:
                 cursor.execute("ALTER TABLE findings ADD COLUMN file_name TEXT")
             if "actual_config" not in find_cols:
@@ -141,8 +157,9 @@ class SQLiteRepository:
                 total_findings, critical_count, high_count, medium_count, low_count,
                 dimension_scores, unsupported_constructs, discovered_resources, discovery_summary,
                 score_explanation, check_statistics, compound_risks,
+                corrected_file_key, corrected_content, staged_remediations, comparison_data, parent_scan_id,
                 file_key, storage_backend, created_at, completed_at, error_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 scan.scan_id, scan.scan_type, scan.target_name, scan.status, scan.overall_risk_score,
                 scan.risk_grade, scan.total_findings, scan.critical_count, scan.high_count,
@@ -153,6 +170,11 @@ class SQLiteRepository:
                 json.dumps(scan.score_explanation or {}),
                 json.dumps(scan.check_statistics or {}),
                 json.dumps(scan.compound_risks or []),
+                scan.corrected_file_key,
+                scan.corrected_content,
+                json.dumps(scan.staged_remediations or {}),
+                json.dumps(scan.comparison_data or {}),
+                scan.parent_scan_id,
                 scan.file_key,
                 scan.storage_backend, scan.created_at, scan.completed_at, scan.error_message
             ))
@@ -164,14 +186,16 @@ class SQLiteRepository:
                     resource_id, resource_type, evidence, title, description, impact,
                     remediation_summary, remediation_code, cli_command, line_number,
                     created_at, ai_remediation, remediation_source,
+                    remediation_status, remediation_preview, remediation_history,
                     file_name, actual_config, expected_config, confidence, finding_status,
                     verification_method, verification_details, related_resources
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     f.finding_id, scan.scan_id, f.rule_id, f.rule_name, f.dimension, f.severity,
                     f.resource_id, f.resource_type, json.dumps(f.evidence), f.title, f.description, f.impact,
                     f.remediation_summary, f.remediation_code, f.cli_command, f.line_number,
                     f.created_at, f.ai_remediation, f.remediation_source,
+                    f.remediation_status, json.dumps(f.remediation_preview or {}), json.dumps(f.remediation_history or []),
                     f.file_name, f.actual_config, f.expected_config, f.confidence, f.finding_status,
                     f.verification_method, json.dumps(f.verification_details or {}), json.dumps(f.related_resources or [])
                 ))
@@ -194,12 +218,12 @@ class SQLiteRepository:
             findings = []
             for fr in finding_rows:
                 f_data = dict(fr)
-                for json_col in ("evidence", "verification_details", "related_resources"):
+                for json_col in ("evidence", "verification_details", "related_resources", "remediation_preview", "remediation_history"):
                     if isinstance(f_data.get(json_col), str):
                         try:
                             f_data[json_col] = json.loads(f_data[json_col])
                         except Exception:
-                            f_data[json_col] = [] if json_col == "related_resources" else {}
+                            f_data[json_col] = [] if json_col in ("related_resources", "remediation_history") else {}
                 findings.append(Finding(**f_data))
 
             data = dict(row)
@@ -210,7 +234,9 @@ class SQLiteRepository:
                 ("discovery_summary", {}),
                 ("score_explanation", {}),
                 ("check_statistics", {}),
-                ("compound_risks", [])
+                ("compound_risks", []),
+                ("staged_remediations", {}),
+                ("comparison_data", {})
             ]:
                 if isinstance(data.get(col), str):
                     try:
@@ -241,7 +267,9 @@ class SQLiteRepository:
                     ("discovery_summary", {}),
                     ("score_explanation", {}),
                     ("check_statistics", {}),
-                    ("compound_risks", [])
+                    ("compound_risks", []),
+                    ("staged_remediations", {}),
+                    ("comparison_data", {})
                 ]:
                     if isinstance(data.get(col), str):
                         try:

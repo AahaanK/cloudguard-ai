@@ -5,12 +5,16 @@ Connects IaC Parser, 7-Dimension Rule Engine, Live Scanner, Repository, and Asyn
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Response, BackgroundTasks
 import uuid
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
 
 from ..storage.manager import storage_manager
 from ..engine.parser import IaCParser, NormalizedResource
 from ..engine.rules import RuleEvaluator
 from ..engine.scorer import RiskScorer
+from ..engine.remediation_engine import RemediationEngine
+from ..engine.remediation_validator import RemediationValidator
+from ..engine.remediation_comparator import RemediationComparator
 from ..scanner.live_scanner import live_scanner
 from ..reports.exporter import ReportExporter
 from ..db.repository import repository
@@ -558,4 +562,405 @@ def verify_individual_finding(scan_id: str, finding_id: str):
         "updated_finding": target_finding.model_dump(),
         "updated_score": score,
         "updated_grade": grade
+    }
+
+@router.post("/{scan_id}/findings/{finding_id}/remediation/preview")
+def preview_finding_remediation(scan_id: str, finding_id: str):
+    """
+    Intelligent Remediation Engine:
+    Generates a contextual, surgically targeted IaC code correction for the affected finding.
+    Performs pre-application validation (syntactic validity + security correctness check).
+    Displays original config, proposed config, unified diff, explanation, security benefit, and side-effects.
+    Does NOT overwrite original file.
+    """
+    job = repository.get_scan(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    target_finding = next((f for f in job.findings if f.finding_id == finding_id), None)
+    if not target_finding:
+        raise HTTPException(status_code=404, detail=f"Finding '{finding_id}' not found in scan '{scan_id}'.")
+
+    # Retrieve current base blueprint text
+    content_str = ""
+    if job.file_key:
+        try:
+            content_bytes, _ = storage_manager.retrieve_file(job.file_key)
+            content_str = content_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+
+    if not content_str:
+        content_str = target_finding.actual_config or (target_finding.remediation_code or "")
+
+    # Generate precision remediation
+    rem_preview = RemediationEngine.generate_remediation(
+        finding=target_finding,
+        blueprint_content=content_str,
+        filename=job.target_name
+    )
+
+    # Apply fix to candidate content in memory to validate
+    candidate_content = RemediationEngine.apply_staged_remediations(
+        original_blueprint=content_str,
+        staged_remediations={finding_id: rem_preview},
+        filename=job.target_name
+    )
+
+    # Validate candidate fix
+    validation = RemediationValidator.validate_remediation(
+        candidate_blueprint=candidate_content,
+        filename=job.target_name,
+        target_finding=target_finding,
+        original_findings=job.findings
+    )
+    rem_preview["validation"] = validation
+
+    # Update finding status & preview
+    if validation["security_correctness"]:
+        target_finding.remediation_status = "Validated"
+    else:
+        target_finding.remediation_status = "Fix Generated"
+
+    target_finding.remediation_preview = rem_preview
+    repository.save_scan(job)
+
+    cloudwatch_logger.log_audit_event(
+        event_type="REMEDIATION_PREVIEW_GENERATED",
+        scan_id=scan_id,
+        details={
+            "finding_id": finding_id,
+            "rule_id": target_finding.rule_id,
+            "security_correctness": validation["security_correctness"],
+            "candidate_score": validation["candidate_risk_score"]
+        }
+    )
+
+    return {
+        "success": True,
+        "scan_id": scan_id,
+        "finding_id": finding_id,
+        "preview": rem_preview,
+        "validation": validation,
+        "remediation_status": target_finding.remediation_status
+    }
+
+@router.post("/{scan_id}/findings/{finding_id}/remediation/approve")
+def approve_finding_remediation(scan_id: str, finding_id: str):
+    """
+    User-Approved Repair Workflow:
+    Explicit user approval action to stage an approved fix into the working corrected blueprint.
+    Updates finding status to 'Awaiting Approval' / 'Validated' and updates audit history.
+    """
+    job = repository.get_scan(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    target_finding = next((f for f in job.findings if f.finding_id == finding_id), None)
+    if not target_finding:
+        raise HTTPException(status_code=404, detail=f"Finding '{finding_id}' not found in scan '{scan_id}'.")
+
+    # If preview hasn't been generated, generate it now
+    if not target_finding.remediation_preview:
+        content_str = ""
+        if job.file_key:
+            try:
+                content_bytes, _ = storage_manager.retrieve_file(job.file_key)
+                content_str = content_bytes.decode("utf-8", errors="replace")
+            except Exception:
+                pass
+        target_finding.remediation_preview = RemediationEngine.generate_remediation(
+            finding=target_finding,
+            blueprint_content=content_str,
+            filename=job.target_name
+        )
+
+    # Stage the fix
+    if not isinstance(job.staged_remediations, dict):
+        job.staged_remediations = {}
+    job.staged_remediations[finding_id] = target_finding.remediation_preview
+
+    # Apply all staged remediations to update job.corrected_content
+    original_content = ""
+    if job.file_key:
+        try:
+            content_bytes, _ = storage_manager.retrieve_file(job.file_key)
+            original_content = content_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+
+    job.corrected_content = RemediationEngine.apply_staged_remediations(
+        original_blueprint=original_content,
+        staged_remediations=job.staged_remediations,
+        filename=job.target_name
+    )
+
+    target_finding.remediation_status = "Validated"
+    target_finding.remediation_history.append({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "action": "APPROVED_BY_USER",
+        "change": target_finding.remediation_preview.get("change_description", "Fix approved")
+    })
+
+    repository.save_scan(job)
+
+    cloudwatch_logger.log_audit_event(
+        event_type="REMEDIATION_FIX_APPROVED",
+        scan_id=scan_id,
+        details={
+            "finding_id": finding_id,
+            "rule_id": target_finding.rule_id,
+            "staged_count": len(job.staged_remediations)
+        }
+    )
+
+    return {
+        "success": True,
+        "message": f"Remediation for '{target_finding.rule_id}' approved and staged into corrected blueprint.",
+        "staged_count": len(job.staged_remediations),
+        "remediation_status": target_finding.remediation_status
+    }
+
+@router.get("/{scan_id}/remediation/candidate")
+def get_candidate_remediated_blueprint(scan_id: str):
+    """
+    Retrieves the current in-memory candidate corrected blueprint with all approved remediations.
+    """
+    job = repository.get_scan(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    original_content = ""
+    if job.file_key:
+        try:
+            content_bytes, _ = storage_manager.retrieve_file(job.file_key)
+            original_content = content_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+
+    corrected_text = job.corrected_content or RemediationEngine.apply_staged_remediations(
+        original_blueprint=original_content,
+        staged_remediations=job.staged_remediations or {},
+        filename=job.target_name
+    )
+
+    return {
+        "success": True,
+        "scan_id": scan_id,
+        "target_name": job.target_name,
+        "staged_count": len(job.staged_remediations or {}),
+        "candidate_blueprint": corrected_text
+    }
+
+@router.get("/{scan_id}/remediation/export")
+def export_remediated_blueprint(scan_id: str, download: bool = Query(default=False)):
+    """
+    User-Approved Export Action:
+    Generates the final corrected blueprint incorporating all staged fixes,
+    stores it securely in the storage backend, and marks status as 'Exported'.
+    Returns downloadable file stream or JSON metadata.
+    """
+    job = repository.get_scan(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    original_content = ""
+    if job.file_key:
+        try:
+            content_bytes, _ = storage_manager.retrieve_file(job.file_key)
+            original_content = content_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+
+    corrected_text = job.corrected_content or RemediationEngine.apply_staged_remediations(
+        original_blueprint=original_content,
+        staged_remediations=job.staged_remediations or {},
+        filename=job.target_name
+    )
+
+    corrected_filename = f"remediated_{job.target_name}"
+    content_bytes = corrected_text.encode("utf-8")
+
+    # Store in configured storage layer
+    store_res = storage_manager.store_file(
+        content=content_bytes,
+        filename=corrected_filename,
+        analysis_id=f"rem_{scan_id}",
+        is_report=False
+    )
+    job.corrected_file_key = store_res["file_key"]
+    job.corrected_content = corrected_text
+
+    # Update status for all staged findings
+    for finding_id in (job.staged_remediations or {}):
+        f = next((item for item in job.findings if item.finding_id == finding_id), None)
+        if f:
+            f.remediation_status = "Exported"
+            f.remediation_history.append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "action": "EXPORTED",
+                "file_key": store_res["file_key"]
+            })
+
+    repository.save_scan(job)
+
+    cloudwatch_logger.log_audit_event(
+        event_type="CORRECTED_BLUEPRINT_EXPORTED",
+        scan_id=scan_id,
+        details={
+            "corrected_filename": corrected_filename,
+            "staged_count": len(job.staged_remediations or {})
+        }
+    )
+
+    if download:
+        return Response(
+            content=corrected_text,
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename={corrected_filename}"}
+        )
+
+    return {
+        "success": True,
+        "scan_id": scan_id,
+        "filename": corrected_filename,
+        "file_key": store_res["file_key"],
+        "storage_backend": store_res["storage_backend"],
+        "byte_size": len(content_bytes),
+        "staged_count": len(job.staged_remediations or {}),
+        "content": corrected_text
+    }
+
+@router.post("/{scan_id}/remediation/verify-rescan")
+def verify_and_rescan_remediation(scan_id: str):
+    """
+    Before-and-After Security Verification Lifecycle:
+    Re-analyses the corrected blueprint using the identical 7-dimension rule evaluator and risk scorer.
+    Computes mathematically verified before-and-after comparison.
+    Updates original finding statuses to 'Resolved', 'Partially Resolved', or 'Unresolved'.
+    Never marks a risk resolved without passing full AST inspection.
+    """
+    job = repository.get_scan(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    # Get corrected blueprint
+    corrected_text = job.corrected_content
+    if not corrected_text:
+        original_content = ""
+        if job.file_key:
+            try:
+                content_bytes, _ = storage_manager.retrieve_file(job.file_key)
+                original_content = content_bytes.decode("utf-8", errors="replace")
+            except Exception:
+                pass
+        corrected_text = RemediationEngine.apply_staged_remediations(
+            original_blueprint=original_content,
+            staged_remediations=job.staged_remediations or {},
+            filename=job.target_name
+        )
+
+    if not corrected_text:
+        raise HTTPException(status_code=400, detail="No corrected blueprint available to rescan.")
+
+    corrected_bytes = corrected_text.encode("utf-8")
+    new_scan_id = f"scan_rem_{uuid.uuid4().hex[:10]}"
+    new_target_name = f"remediated_{job.target_name}"
+
+    # Store corrected blueprint
+    store_res = storage_manager.store_file(
+        content=corrected_bytes,
+        filename=new_target_name,
+        analysis_id=new_scan_id,
+        is_report=False
+    )
+
+    # Full authentic analysis of corrected blueprint
+    resources, unsupported = IaCParser.parse(corrected_bytes, new_target_name)
+    new_findings, discovered, summary = RuleEvaluator.evaluate_blueprint(
+        resources=resources,
+        scan_id=new_scan_id,
+        unsupported=unsupported,
+        filename=new_target_name,
+        file_size=len(corrected_bytes)
+    )
+
+    new_score, new_grade, new_dim_scores, new_counts, new_explanation = RiskScorer.calculate_score_detailed(
+        new_findings, summary.get("check_statistics")
+    )
+
+    remediated_job = ScanJob(
+        scan_id=new_scan_id,
+        scan_type="IAC_STATIC",
+        target_name=new_target_name,
+        status="COMPLETED",
+        overall_risk_score=new_score,
+        risk_grade=new_grade,
+        total_findings=new_counts["total"],
+        critical_count=new_counts["critical"],
+        high_count=new_counts["high"],
+        medium_count=new_counts["medium"],
+        low_count=new_counts["low"],
+        dimension_scores=new_dim_scores,
+        unsupported_constructs=unsupported,
+        discovered_resources=discovered,
+        discovery_summary=summary,
+        score_explanation=new_explanation,
+        check_statistics=summary.get("check_statistics", {}),
+        compound_risks=summary.get("compound_risks", []),
+        file_key=store_res["file_key"],
+        storage_backend=store_res["storage_backend"],
+        parent_scan_id=scan_id,
+        findings=new_findings
+    )
+
+    # Compute comparison
+    comparison = RemediationComparator.compare_scans(original_scan=job, remediated_scan=remediated_job)
+
+    # Update original findings based on comparison
+    resolved_ids = {item["finding_id"] for item in comparison["resolved_findings"]}
+    partially_ids = {item["finding_id"] for item in comparison["partially_resolved_findings"]}
+    unresolved_ids = {item["finding_id"] for item in comparison["unresolved_findings"]}
+
+    for f in job.findings:
+        if f.finding_id in resolved_ids:
+            f.remediation_status = "Resolved"
+        elif f.finding_id in partially_ids:
+            f.remediation_status = "Partially Resolved"
+        elif f.finding_id in unresolved_ids:
+            if f.finding_id in (job.staged_remediations or {}):
+                f.remediation_status = "Verification Failed"
+            else:
+                f.remediation_status = "Unresolved"
+
+        f.remediation_history.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "action": "RESCAN_VERIFICATION",
+            "status": f.remediation_status,
+            "remediated_scan_id": new_scan_id
+        })
+
+    job.comparison_data = comparison
+    remediated_job.comparison_data = comparison
+
+    repository.save_scan(job)
+    repository.save_scan(remediated_job)
+
+    cloudwatch_logger.log_audit_event(
+        event_type="REMEDIATION_RESCAN_COMPLETED",
+        scan_id=scan_id,
+        details={
+            "remediated_scan_id": new_scan_id,
+            "score_before": comparison["score_before"],
+            "score_after": comparison["score_after"],
+            "resolved_count": comparison["resolved_count"]
+        }
+    )
+
+    return {
+        "success": True,
+        "message": f"Remediated blueprint rescanned. Score improved from {comparison['score_before']} (Grade {comparison['grade_before']}) to {comparison['score_after']} (Grade {comparison['grade_after']}).",
+        "comparison": comparison,
+        "original_scan": job.model_dump(),
+        "remediated_scan": remediated_job.model_dump()
     }
