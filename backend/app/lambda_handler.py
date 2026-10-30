@@ -99,8 +99,10 @@ def process_analysis_job(file_key: str, analysis_id: Optional[str] = None) -> Di
             file_size=len(content)
         )
 
-        # 6. Compute Scores
-        score, grade, dim_scores, counts = RiskScorer.calculate_score(findings)
+        # 6. Compute Scores & Detailed Explanation
+        score, grade, dim_scores, counts, score_explanation = RiskScorer.calculate_score_detailed(
+            findings, discovery_summary.get("check_statistics")
+        )
 
         # 7. Persist COMPLETED ScanJob
         duration_ms = round((time.time() - start_time) * 1000, 2)
@@ -120,6 +122,9 @@ def process_analysis_job(file_key: str, analysis_id: Optional[str] = None) -> Di
             unsupported_constructs=unsupported,
             discovered_resources=discovered_resources,
             discovery_summary=discovery_summary,
+            score_explanation=score_explanation,
+            check_statistics=discovery_summary.get("check_statistics", {}),
+            compound_risks=discovery_summary.get("compound_risks", []),
             file_key=clean_key,
             storage_backend="s3" if storage_manager.prefer_s3 else "local",
             findings=findings

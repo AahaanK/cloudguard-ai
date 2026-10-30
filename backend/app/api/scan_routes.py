@@ -8,7 +8,7 @@ import uuid
 from typing import Optional, List
 
 from ..storage.manager import storage_manager
-from ..engine.parser import IaCParser
+from ..engine.parser import IaCParser, NormalizedResource
 from ..engine.rules import RuleEvaluator
 from ..engine.scorer import RiskScorer
 from ..scanner.live_scanner import live_scanner
@@ -172,8 +172,10 @@ async def scan_uploaded_infrastructure(
             file_size=len(raw_bytes)
         )
 
-        # 5. Compute Scores & Subtotals
-        score, grade, dim_scores, counts = RiskScorer.calculate_score(findings)
+        # 5. Compute Scores & Subtotals with Detailed Explanation
+        score, grade, dim_scores, counts, score_explanation = RiskScorer.calculate_score_detailed(
+            findings, discovery_summary.get("check_statistics")
+        )
 
         # 6. Build and Persist ScanJob
         job = ScanJob(
@@ -192,6 +194,9 @@ async def scan_uploaded_infrastructure(
             unsupported_constructs=unsupported,
             discovered_resources=discovered_resources,
             discovery_summary=discovery_summary,
+            score_explanation=score_explanation,
+            check_statistics=discovery_summary.get("check_statistics", {}),
+            compound_risks=discovery_summary.get("compound_risks", []),
             file_key=store_res["file_key"],
             storage_backend=store_res["storage_backend"],
             findings=findings
@@ -288,8 +293,16 @@ async def analyze_stored_infrastructure(
     try:
         content, _ = storage_manager.retrieve_file(file_key)
         resources, unsupported = IaCParser.parse(content, filename)
-        findings = RuleEvaluator.evaluate(resources, scan_id)
-        score, grade, dim_scores, counts = RiskScorer.calculate_score(findings)
+        findings, discovered_resources, discovery_summary = RuleEvaluator.evaluate_blueprint(
+            resources=resources,
+            scan_id=scan_id,
+            unsupported=unsupported,
+            filename=filename,
+            file_size=len(content)
+        )
+        score, grade, dim_scores, counts, score_explanation = RiskScorer.calculate_score_detailed(
+            findings, discovery_summary.get("check_statistics")
+        )
 
         job = ScanJob(
             scan_id=scan_id,
@@ -305,6 +318,11 @@ async def analyze_stored_infrastructure(
             low_count=counts["low"],
             dimension_scores=dim_scores,
             unsupported_constructs=unsupported,
+            discovered_resources=discovered_resources,
+            discovery_summary=discovery_summary,
+            score_explanation=score_explanation,
+            check_statistics=discovery_summary.get("check_statistics", {}),
+            compound_risks=discovery_summary.get("compound_risks", []),
             file_key=file_key,
             storage_backend="s3" if storage_manager.prefer_s3 else "local",
             findings=findings
@@ -456,4 +474,88 @@ async def generate_finding_ai_remediation(scan_id: str, finding_id: str):
         "scan_id": scan_id,
         "finding_id": finding_id,
         "remediation": result
+    }
+
+@router.post("/{scan_id}/findings/{finding_id}/verify")
+def verify_individual_finding(scan_id: str, finding_id: str):
+    """
+    Evidence-based finding verification action:
+    Re-examines resource and graph context in the blueprint AST.
+    Detects whether compensating controls or overriding policies exist.
+    Clearly distinguishes static blueprint verification from live AWS verification.
+    Updates the finding status, confidence, and verification details in persistence.
+    """
+    job = repository.get_scan(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    target_finding = next((f for f in job.findings if f.finding_id == finding_id), None)
+    if not target_finding:
+        raise HTTPException(status_code=404, detail=f"Finding '{finding_id}' not found in scan '{scan_id}'.")
+
+    # Reconstruct or parse resources from stored blueprint
+    resources: List[NormalizedResource] = []
+    if job.file_key:
+        try:
+            stored_content, _ = storage_manager.retrieve_file(job.file_key)
+            parsed_res, _ = IaCParser.parse(stored_content, job.target_name)
+            resources = parsed_res
+        except Exception:
+            pass
+
+    if not resources and job.discovered_resources:
+        for dr in job.discovered_resources:
+            resources.append(NormalizedResource(
+                resource_id=dr["resource_id"],
+                resource_type=dr["resource_type"],
+                service=dr["service"],
+                properties=dr.get("properties", {}),
+                line_number=dr.get("line_number", 1),
+                relationships=dr.get("relationships", [])
+            ))
+
+    verification_result = RuleEvaluator.verify_finding(target_finding, resources)
+
+    # Update finding fields
+    target_finding.verification_method = verification_result.get("verification_method", "STATIC_BLUEPRINT_VERIFICATION")
+    target_finding.verification_details = verification_result
+    if verification_result.get("status"):
+        target_finding.finding_status = verification_result["status"]
+    if verification_result.get("confidence"):
+        target_finding.confidence = verification_result["confidence"]
+
+    # Re-calculate score with updated finding statuses
+    score, grade, dim_scores, counts, score_explanation = RiskScorer.calculate_score_detailed(
+        job.findings, job.check_statistics
+    )
+    job.overall_risk_score = score
+    job.risk_grade = grade
+    job.dimension_scores = dim_scores
+    job.score_explanation = score_explanation
+    job.critical_count = counts["critical"]
+    job.high_count = counts["high"]
+    job.medium_count = counts["medium"]
+    job.low_count = counts["low"]
+
+    repository.save_scan(job)
+
+    cloudwatch_logger.log_audit_event(
+        event_type="FINDING_VERIFIED",
+        scan_id=scan_id,
+        details={
+            "finding_id": finding_id,
+            "rule_id": target_finding.rule_id,
+            "verification_status": verification_result.get("status"),
+            "confidence": verification_result.get("confidence")
+        }
+    )
+
+    return {
+        "success": True,
+        "scan_id": scan_id,
+        "finding_id": finding_id,
+        "verification": verification_result,
+        "updated_finding": target_finding.model_dump(),
+        "updated_score": score,
+        "updated_grade": grade
     }

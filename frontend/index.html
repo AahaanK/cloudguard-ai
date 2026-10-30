@@ -645,8 +645,9 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width: 120px;">Severity</th>
-                  <th style="width: 130px;">Rule ID</th>
+                  <th style="width: 105px;">Severity</th>
+                  <th style="width: 110px;">Status</th>
+                  <th style="width: 120px;">Rule ID</th>
                   <th>Finding Title &amp; Description</th>
                   <th>Target Resource</th>
                   <th style="width: 120px;">Dimension</th>
@@ -655,7 +656,7 @@
               </thead>
               <tbody id="findingsTableBody">
                 <tr>
-                  <td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 32px;">No scan selected or no findings detected. Ingest an infrastructure blueprint to start.</td>
+                  <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 32px;">No scan selected or no findings detected. Ingest an infrastructure blueprint to start.</td>
                 </tr>
               </tbody>
             </table>
@@ -820,6 +821,8 @@
       <div class="drawer-header-left">
         <span class="severity-tag" id="drawerSeverityTag">CRITICAL</span>
         <span class="drawer-rule-pill" id="drawerRuleId">SEC-S3-001</span>
+        <span id="drawerStatusPill" style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 3px; margin-left: 6px; text-transform: uppercase;">CONFIRMED</span>
+        <span id="drawerConfidencePill" style="font-size: 10px; font-weight: 500; padding: 2px 6px; border-radius: 3px; margin-left: 4px; background: var(--color-surface-muted); color: var(--color-text-secondary); border: 1px solid var(--color-border);">HIGH CONFIDENCE</span>
       </div>
       <button type="button" id="closeDrawerBtn" class="btn btn-secondary btn-sm">✕ Close</button>
     </div>
@@ -829,6 +832,36 @@
       <div class="drawer-section">
         <h2 class="drawer-title-heading" id="drawerTitle">Finding Title</h2>
         <div class="drawer-resource-pill" id="drawerResourceInfo">Target Resource: aws_s3_bucket.data</div>
+        <div id="drawerLocationInfo" style="font-size: 11.5px; color: var(--color-text-muted); margin-top: 4px; font-family: var(--font-mono);">Source File: template.tf &bull; Line: 1</div>
+      </div>
+
+      <!-- Configuration Differential -->
+      <div class="drawer-section" id="drawerConfigDiffSection">
+        <span class="drawer-section-title">Configuration Differential</span>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+          <div style="background: #faf7f5; border: 1px solid #ebd9d2; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; font-weight: 700; color: #8b0000; text-transform: uppercase; margin-bottom: 4px;">Detected Setting</div>
+            <code id="drawerActualConfig" style="font-size: 11px; color: var(--color-text-main); word-break: break-all;">None</code>
+          </div>
+          <div style="background: #f4f8f6; border: 1px solid #cce2d6; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; font-weight: 700; color: #2d5a27; text-transform: uppercase; margin-bottom: 4px;">Recommended Standard</div>
+            <code id="drawerExpectedConfig" style="font-size: 11px; color: var(--color-text-main); word-break: break-all;">None</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evidence-Based Verification Panel -->
+      <div class="drawer-section" style="background: #faf8f5; border: 1px solid #e5dfd5; border-radius: 4px; padding: 12px; margin-top: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div>
+            <span class="drawer-section-title" style="margin-bottom: 0; color: var(--color-primary);">Blueprint AST Verification</span>
+            <div style="font-size: 11px; color: var(--color-text-muted);">Re-evaluates cross-resource context &amp; compensating controls</div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="verifyFindingBtn" style="padding: 3px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+            <span>🔍 Verify Finding</span>
+          </button>
+        </div>
+        <div id="drawerVerificationBox" style="display: none; margin-top: 10px; font-size: 12px;"></div>
       </div>
 
       <!-- Detected Configuration Evidence -->

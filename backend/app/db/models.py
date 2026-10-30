@@ -29,6 +29,14 @@ class Finding(BaseModel):
     ai_remediation: Optional[str] = None
     remediation_source: str = "DETERMINISTIC"  # DETERMINISTIC or BEDROCK_AI
     line_number: Optional[int] = None
+    file_name: Optional[str] = None
+    actual_config: Optional[str] = None
+    expected_config: Optional[str] = None
+    confidence: str = "HIGH"  # HIGH, MEDIUM, LOW
+    finding_status: str = "CONFIRMED"  # CONFIRMED, POTENTIAL, REQUIRES_VERIFICATION
+    verification_method: str = "STATIC_ANALYSIS_BLUEPRINT"
+    verification_details: Optional[Dict[str, Any]] = None
+    related_resources: List[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now_iso)
 
 class ScanJob(BaseModel):
@@ -47,6 +55,9 @@ class ScanJob(BaseModel):
     unsupported_constructs: List[Dict[str, Any]] = Field(default_factory=list)
     discovered_resources: List[Dict[str, Any]] = Field(default_factory=list)
     discovery_summary: Dict[str, Any] = Field(default_factory=dict)
+    score_explanation: Optional[Dict[str, Any]] = None
+    check_statistics: Dict[str, Any] = Field(default_factory=dict)
+    compound_risks: List[Dict[str, Any]] = Field(default_factory=list)
     file_key: Optional[str] = None
     storage_backend: str = "local"
     created_at: str = Field(default_factory=utc_now_iso)

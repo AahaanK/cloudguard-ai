@@ -121,6 +121,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const triggerAiRemediationBtn = document.getElementById("triggerAiRemediationBtn");
   const drawerAiStatus = document.getElementById("drawerAiStatus");
   const drawerAiBlock = document.getElementById("drawerAiBlock");
+  const drawerStatusPill = document.getElementById("drawerStatusPill");
+  const drawerConfidencePill = document.getElementById("drawerConfidencePill");
+  const drawerLocationInfo = document.getElementById("drawerLocationInfo");
+  const drawerActualConfig = document.getElementById("drawerActualConfig");
+  const drawerExpectedConfig = document.getElementById("drawerExpectedConfig");
+  const verifyFindingBtn = document.getElementById("verifyFindingBtn");
+  const drawerVerificationBox = document.getElementById("drawerVerificationBox");
+  const scoreExplanationCard = document.getElementById("scoreExplanationCard");
+  const scoreExplanationContent = document.getElementById("scoreExplanationContent");
+  const compoundRisksCard = document.getElementById("compoundRisksCard");
+  const compoundRisksContent = document.getElementById("compoundRisksContent");
 
   // Live AWS Audit View
   const liveAwsIdentityDetails = document.getElementById("liveAwsIdentityDetails");
@@ -800,6 +811,68 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     dimensionBarsContainer.innerHTML = dimHtml;
 
+    // Render Transparent Score Calculation Breakdown
+    if (scan.score_explanation && scoreExplanationCard && scoreExplanationContent) {
+      const se = scan.score_explanation;
+      const sb = se.status_breakdown || {};
+      const sevb = se.severity_breakdown || {};
+      let critWarning = se.critical_override_applied 
+        ? `<div style="background: #fbeae5; border: 1px solid #e2a698; border-radius: 4px; padding: 10px; margin-bottom: 12px; font-size: 12px; color: #8b0000;">
+             <strong>Critical Risk Guardrail Activated:</strong> An explicit confirmed critical vulnerability was detected. Per Well-Architected governance standards, the overall risk score is pinned to 70.0 (Grade D/F) to prevent low-severity findings from concealing severe security openings.
+           </div>`
+        : "";
+
+      scoreExplanationContent.innerHTML = `
+        ${critWarning}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px;">
+          <div style="background: var(--color-surface-muted); padding: 12px; border-radius: 4px; border: 1px solid var(--color-border);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); font-weight: 600;">Mathematical Formula</div>
+            <div style="font-size: 12px; font-family: var(--font-mono); margin-top: 4px; color: var(--color-text-main);">Score = min(100, &sum; (Severity Weight &times; Status Multiplier))</div>
+            <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px;">Raw Points: <strong>${se.raw_weighted_points !== undefined ? se.raw_weighted_points : scan.overall_risk_score}</strong> &bull; Deduplicated: <strong>${se.deduplicated_findings_count || 0}</strong></div>
+          </div>
+          <div style="background: var(--color-surface-muted); padding: 12px; border-radius: 4px; border: 1px solid var(--color-border);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); font-weight: 600;">Status Multipliers</div>
+            <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+              <span style="font-size: 11px; background: #fbeae5; color: #8b0000; padding: 2px 6px; border-radius: 3px;">Confirmed (1.0x): ${sb.CONFIRMED || 0}</span>
+              <span style="font-size: 11px; background: #fdf3d8; color: #8c6b12; padding: 2px 6px; border-radius: 3px;">Potential (0.65x): ${sb.POTENTIAL || 0}</span>
+              <span style="font-size: 11px; background: #eef4f8; color: #1d5872; padding: 2px 6px; border-radius: 3px;">Requires Verif (0.35x): ${sb.REQUIRES_VERIFICATION || 0}</span>
+            </div>
+          </div>
+          <div style="background: var(--color-surface-muted); padding: 12px; border-radius: 4px; border: 1px solid var(--color-border);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); font-weight: 600;">Severity Base Points</div>
+            <div style="font-size: 11.5px; color: var(--color-text-secondary); margin-top: 4px;">
+              Crit: 25pt (${sevb.CRITICAL || 0}) &bull; High: 15pt (${sevb.HIGH || 0}) &bull; Med: 8pt (${sevb.MEDIUM || 0}) &bull; Low: 3pt (${sevb.LOW || 0})
+            </div>
+          </div>
+        </div>
+      `;
+      scoreExplanationCard.style.display = "block";
+    } else if (scoreExplanationCard) {
+      scoreExplanationCard.style.display = "none";
+    }
+
+    // Render Compound Risks
+    if (scan.compound_risks && scan.compound_risks.length > 0 && compoundRisksCard && compoundRisksContent) {
+      let crHtml = "";
+      scan.compound_risks.forEach(cr => {
+        crHtml += `
+          <div style="background: #faf7f5; border: 1px solid #ebd9d2; border-left: 4px solid #8b0000; border-radius: 4px; padding: 12px 14px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 600; color: #8b0000; font-size: 13.5px;">${cr.title}</span>
+              <span class="severity-tag CRITICAL" style="font-size: 10px;">COMPOUND THREAT</span>
+            </div>
+            <div style="font-size: 12px; font-family: var(--font-mono); color: var(--color-text-secondary); margin: 4px 0;">Vector: ${cr.vector}</div>
+            <p style="font-size: 12.5px; color: var(--color-text-main); margin: 6px 0; line-height: 1.5;">${cr.description}</p>
+            <div style="font-size: 12px; color: #287fa3; font-weight: 500;">Action: ${cr.recommended_action}</div>
+          </div>
+        `;
+      });
+      compoundRisksContent.innerHTML = crHtml;
+      compoundRisksCard.style.display = "block";
+    } else if (compoundRisksCard) {
+      compoundRisksCard.style.display = "none";
+    }
+
     // Render findings
     renderFindingsTable(allFindings);
   }
@@ -810,18 +883,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!findings || findings.length === 0) {
       if (activeScan && activeScan.overall_risk_score === 0) {
-        findingsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-low); padding: 24px; font-weight: 500;">✓ Clean Architecture: No security or compliance risks detected across all 7 Well-Architected dimensions (Risk Score 0.0, Grade A).</td></tr>`;
+        findingsTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-low); padding: 24px; font-weight: 500;">✓ Clean Architecture: No security or compliance risks detected across all 7 Well-Architected dimensions (Risk Score 0.0, Grade A).</td></tr>`;
       } else {
-        findingsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 24px;">No findings match the current criteria.</td></tr>`;
+        findingsTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 24px;">No findings match the current criteria.</td></tr>`;
       }
       return;
     }
 
     let rows = "";
     findings.forEach(f => {
+      const status = (f.finding_status || "CONFIRMED").toUpperCase();
+      const statusStyle = status === "CONFIRMED"
+        ? "background: #fbeae5; color: #8b0000; border: 1px solid rgba(139, 0, 0, 0.2);"
+        : status === "POTENTIAL"
+        ? "background: #fdf3d8; color: #8c6b12; border: 1px solid rgba(140, 107, 18, 0.2);"
+        : "background: #eef4f8; color: #1d5872; border: 1px solid rgba(29, 88, 114, 0.2);";
+
       rows += `
         <tr>
           <td><span class="severity-tag ${f.severity}">${f.severity}</span></td>
+          <td><span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; display: inline-block; ${statusStyle}">${status.replace(/_/g, ' ')}</span></td>
           <td><code style="font-size: 11.5px; padding: 2px 6px; background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: 3px;">${f.rule_id}</code></td>
           <td style="font-weight: 600; color: var(--color-text-main);">${f.title}</td>
           <td><code style="font-size: 11px; color: var(--color-text-secondary);">${f.resource_id}</code></td>
@@ -868,6 +949,51 @@ document.addEventListener("DOMContentLoaded", () => {
     drawerSeverityTag.className = `severity-tag ${f.severity}`;
     drawerSeverityTag.textContent = f.severity;
     drawerRuleId.textContent = f.rule_id;
+
+    // Status & Confidence pills
+    const status = (f.finding_status || "CONFIRMED").toUpperCase();
+    if (drawerStatusPill) {
+      drawerStatusPill.textContent = status.replace(/_/g, " ");
+      if (status === "CONFIRMED") {
+        drawerStatusPill.style.background = "#fbeae5";
+        drawerStatusPill.style.color = "#8b0000";
+      } else if (status === "POTENTIAL") {
+        drawerStatusPill.style.background = "#fdf3d8";
+        drawerStatusPill.style.color = "#8c6b12";
+      } else {
+        drawerStatusPill.style.background = "#eef4f8";
+        drawerStatusPill.style.color = "#1d5872";
+      }
+    }
+
+    if (drawerConfidencePill) {
+      drawerConfidencePill.textContent = `${(f.confidence || "HIGH").toUpperCase()} CONFIDENCE`;
+    }
+
+    // Source Location
+    if (drawerLocationInfo) {
+      const srcFile = f.file_name || (activeScan && activeScan.target_name) || "template.tf";
+      const lineNum = f.line_number || "1";
+      drawerLocationInfo.textContent = `Source File: ${srcFile} • Line: ${lineNum}`;
+    }
+
+    // Actual vs Expected Config
+    if (drawerActualConfig) {
+      let actVal = f.actual_config;
+      if (!actVal && f.evidence && f.evidence.detected_value !== undefined) {
+        actVal = typeof f.evidence.detected_value === "object" ? JSON.stringify(f.evidence.detected_value) : String(f.evidence.detected_value);
+      }
+      drawerActualConfig.textContent = actVal || "Not declared in blueprint";
+    }
+
+    if (drawerExpectedConfig) {
+      let expVal = f.expected_config;
+      if (!expVal && f.evidence && f.evidence.expected_value !== undefined) {
+        expVal = typeof f.evidence.expected_value === "object" ? JSON.stringify(f.evidence.expected_value) : String(f.evidence.expected_value);
+      }
+      drawerExpectedConfig.textContent = expVal || "Standard secure baseline";
+    }
+
     drawerTitle.textContent = f.title;
     drawerResourceInfo.textContent = `Target Resource: ${f.resource_id} (${f.resource_type})`;
     
@@ -892,6 +1018,9 @@ document.addEventListener("DOMContentLoaded", () => {
       drawerCliContainer.style.display = "none";
     }
 
+    // Render verification panel
+    renderDrawerVerificationDetails(f);
+
     // AI Remediation Section
     if (f.ai_remediation) {
       drawerAiStatus.style.display = "block";
@@ -908,6 +1037,82 @@ document.addEventListener("DOMContentLoaded", () => {
 
     drawerBackdrop.style.display = "block";
     findingDrawer.classList.add("open");
+  }
+
+  function renderDrawerVerificationDetails(f) {
+    if (!drawerVerificationBox) return;
+    if (f.verification_details) {
+      const vd = f.verification_details;
+      drawerVerificationBox.innerHTML = `
+        <div style="background: #fff; border: 1px solid var(--color-border); border-radius: 4px; padding: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-weight: 600; color: #287fa3;">Verified Status: ${vd.status || f.finding_status}</span>
+            <span style="font-size: 11px; color: var(--color-text-muted);">${(vd.verification_timestamp || '').slice(0, 19).replace('T', ' ')} UTC</span>
+          </div>
+          <p style="font-size: 12px; color: var(--color-text-main); line-height: 1.4; margin: 4px 0;">${vd.verification_narrative || 'AST re-examination confirmed finding.'}</p>
+          ${vd.compensating_controls && vd.compensating_controls.length ? `<div style="font-size: 11.5px; color: #8c6b12; margin-top: 4px;"><strong>Compensating Controls:</strong> ${vd.compensating_controls.join(', ')}</div>` : ''}
+          <div style="font-size: 11px; color: var(--color-text-muted); border-top: 1px dashed var(--color-border); margin-top: 6px; padding-top: 6px;">
+            <em>${vd.live_aws_notice || 'Static Blueprint Verification evaluates declared IaC. Live runtime status requires live AWS scanning.'}</em>
+          </div>
+        </div>
+      `;
+      drawerVerificationBox.style.display = "block";
+    } else {
+      drawerVerificationBox.style.display = "none";
+      drawerVerificationBox.innerHTML = "";
+    }
+  }
+
+  if (verifyFindingBtn) {
+    verifyFindingBtn.addEventListener("click", async () => {
+      if (!currentDrawerFinding) return;
+      const scanId = (activeScan && activeScan.scan_id) || currentDrawerFinding.scan_id;
+      if (!scanId) {
+        alert("No active scan associated with this finding.");
+        return;
+      }
+
+      verifyFindingBtn.disabled = true;
+      verifyFindingBtn.innerHTML = "<span>Analyzing AST...</span>";
+      if (drawerVerificationBox) {
+        drawerVerificationBox.style.display = "block";
+        drawerVerificationBox.innerHTML = `<div style="padding: 8px; color: var(--color-text-muted);">Re-evaluating blueprint AST, line references and graph dependencies...</div>`;
+      }
+
+      try {
+        const res = await fetch(`/api/v1/scan/${scanId}/findings/${currentDrawerFinding.finding_id}/verify`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.detail || "Finding verification failed.");
+        }
+
+        const v = data.verification;
+        currentDrawerFinding.finding_status = v.status;
+        currentDrawerFinding.confidence = v.confidence;
+        currentDrawerFinding.verification_details = v;
+
+        // Update active scan if available
+        if (data.updated_score !== undefined && activeScan) {
+          activeScan.overall_risk_score = data.updated_score;
+          activeScan.risk_grade = data.updated_grade;
+          if (dashOverallScore) dashOverallScore.textContent = data.updated_score;
+          if (dashGradeBadge) dashGradeBadge.textContent = `Grade ${data.updated_grade}`;
+        }
+
+        // Re-render drawer elements
+        openFindingDrawer(currentDrawerFinding);
+        renderFindingsTable(allFindings);
+      } catch (err) {
+        if (drawerVerificationBox) {
+          drawerVerificationBox.innerHTML = `<div style="padding: 8px; color: #8b0000;">Verification error: ${err.message}</div>`;
+        }
+      } finally {
+        verifyFindingBtn.disabled = false;
+        verifyFindingBtn.innerHTML = "<span>🔍 Verify Finding</span>";
+      }
+    });
   }
 
   function closeFindingDrawer() {

@@ -158,6 +158,27 @@ class AWSSessionManager:
             self._cache_timestamp = now
             return result
 
+        # Fast diagnostic when no credentials or provider are configured
+        if detection["provider_type"] == "NONE":
+            result = {
+                "status": "NO_CREDENTIALS",
+                "authenticated": False,
+                "provider_type": "NONE",
+                "account_id": None,
+                "arn": None,
+                "region": region,
+                "is_lab_role": False,
+                "error_code": "NoCredentialsError",
+                "message": "No AWS credentials detected in environment, ~/.aws/credentials, or IAM role.",
+                "actionable_guidance": (
+                    "To enable live AWS audits, set your credentials in PowerShell ($env:AWS_ACCESS_KEY_ID), "
+                    "add them to a local .env file, or configure your ~/.aws/credentials profile."
+                )
+            }
+            self._cached_identity = result
+            self._cache_timestamp = now
+            return result
+
         # Bounded STS client configuration
         fast_config = botocore.config.Config(
             connect_timeout=4,

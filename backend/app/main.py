@@ -83,7 +83,9 @@ if os.path.exists(frontend_dir):
         return {"message": "CloudGuardAI API Online. Frontend index.html not yet built."}
 
 # AWS Lambda Handler for Amazon API Gateway (HTTP API v2 or REST API)
-handler = Mangum(app, lifespan="off")
+def handler(event, context):
+    asgi_handler = Mangum(app, lifespan="off")
+    return asgi_handler(event, context)
 
 if __name__ == "__main__":
     import uvicorn

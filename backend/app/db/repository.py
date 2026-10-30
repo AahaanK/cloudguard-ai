@@ -95,6 +95,12 @@ class SQLiteRepository:
                 cursor.execute("ALTER TABLE scans ADD COLUMN discovered_resources TEXT DEFAULT '[]'")
             if "discovery_summary" not in scan_cols:
                 cursor.execute("ALTER TABLE scans ADD COLUMN discovery_summary TEXT DEFAULT '{}'")
+            if "score_explanation" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN score_explanation TEXT DEFAULT '{}'")
+            if "check_statistics" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN check_statistics TEXT DEFAULT '{}'")
+            if "compound_risks" not in scan_cols:
+                cursor.execute("ALTER TABLE scans ADD COLUMN compound_risks TEXT DEFAULT '[]'")
 
             cursor.execute("PRAGMA table_info(findings)")
             find_cols = [c["name"] for c in cursor.fetchall()]
@@ -104,6 +110,22 @@ class SQLiteRepository:
                 cursor.execute("ALTER TABLE findings ADD COLUMN ai_remediation TEXT")
             if "remediation_source" not in find_cols:
                 cursor.execute("ALTER TABLE findings ADD COLUMN remediation_source TEXT DEFAULT 'DETERMINISTIC'")
+            if "file_name" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN file_name TEXT")
+            if "actual_config" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN actual_config TEXT")
+            if "expected_config" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN expected_config TEXT")
+            if "confidence" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN confidence TEXT DEFAULT 'HIGH'")
+            if "finding_status" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN finding_status TEXT DEFAULT 'CONFIRMED'")
+            if "verification_method" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN verification_method TEXT DEFAULT 'STATIC_ANALYSIS_BLUEPRINT'")
+            if "verification_details" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN verification_details TEXT DEFAULT '{}'")
+            if "related_resources" not in find_cols:
+                cursor.execute("ALTER TABLE findings ADD COLUMN related_resources TEXT DEFAULT '[]'")
 
             conn.commit()
         finally:
@@ -118,8 +140,9 @@ class SQLiteRepository:
                 scan_id, scan_type, target_name, status, overall_risk_score, risk_grade,
                 total_findings, critical_count, high_count, medium_count, low_count,
                 dimension_scores, unsupported_constructs, discovered_resources, discovery_summary,
+                score_explanation, check_statistics, compound_risks,
                 file_key, storage_backend, created_at, completed_at, error_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 scan.scan_id, scan.scan_type, scan.target_name, scan.status, scan.overall_risk_score,
                 scan.risk_grade, scan.total_findings, scan.critical_count, scan.high_count,
@@ -127,6 +150,9 @@ class SQLiteRepository:
                 json.dumps(scan.unsupported_constructs),
                 json.dumps(scan.discovered_resources),
                 json.dumps(scan.discovery_summary),
+                json.dumps(scan.score_explanation or {}),
+                json.dumps(scan.check_statistics or {}),
+                json.dumps(scan.compound_risks or []),
                 scan.file_key,
                 scan.storage_backend, scan.created_at, scan.completed_at, scan.error_message
             ))
@@ -137,13 +163,17 @@ class SQLiteRepository:
                     finding_id, scan_id, rule_id, rule_name, dimension, severity,
                     resource_id, resource_type, evidence, title, description, impact,
                     remediation_summary, remediation_code, cli_command, line_number,
-                    created_at, ai_remediation, remediation_source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, ai_remediation, remediation_source,
+                    file_name, actual_config, expected_config, confidence, finding_status,
+                    verification_method, verification_details, related_resources
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     f.finding_id, scan.scan_id, f.rule_id, f.rule_name, f.dimension, f.severity,
                     f.resource_id, f.resource_type, json.dumps(f.evidence), f.title, f.description, f.impact,
                     f.remediation_summary, f.remediation_code, f.cli_command, f.line_number,
-                    f.created_at, f.ai_remediation, f.remediation_source
+                    f.created_at, f.ai_remediation, f.remediation_source,
+                    f.file_name, f.actual_config, f.expected_config, f.confidence, f.finding_status,
+                    f.verification_method, json.dumps(f.verification_details or {}), json.dumps(f.related_resources or [])
                 ))
             conn.commit()
         finally:
@@ -164,30 +194,32 @@ class SQLiteRepository:
             findings = []
             for fr in finding_rows:
                 f_data = dict(fr)
-                if isinstance(f_data.get("evidence"), str):
-                    try:
-                        f_data["evidence"] = json.loads(f_data["evidence"])
-                    except Exception:
-                        f_data["evidence"] = {}
+                for json_col in ("evidence", "verification_details", "related_resources"):
+                    if isinstance(f_data.get(json_col), str):
+                        try:
+                            f_data[json_col] = json.loads(f_data[json_col])
+                        except Exception:
+                            f_data[json_col] = [] if json_col == "related_resources" else {}
                 findings.append(Finding(**f_data))
 
             data = dict(row)
             data["dimension_scores"] = json.loads(data["dimension_scores"])
-            if isinstance(data.get("unsupported_constructs"), str):
-                try:
-                    data["unsupported_constructs"] = json.loads(data["unsupported_constructs"])
-                except Exception:
-                    data["unsupported_constructs"] = []
-            if isinstance(data.get("discovered_resources"), str):
-                try:
-                    data["discovered_resources"] = json.loads(data["discovered_resources"])
-                except Exception:
-                    data["discovered_resources"] = []
-            if isinstance(data.get("discovery_summary"), str):
-                try:
-                    data["discovery_summary"] = json.loads(data["discovery_summary"])
-                except Exception:
-                    data["discovery_summary"] = {}
+            for col, default_val in [
+                ("unsupported_constructs", []),
+                ("discovered_resources", []),
+                ("discovery_summary", {}),
+                ("score_explanation", {}),
+                ("check_statistics", {}),
+                ("compound_risks", [])
+            ]:
+                if isinstance(data.get(col), str):
+                    try:
+                        data[col] = json.loads(data[col])
+                    except Exception:
+                        data[col] = default_val
+                elif data.get(col) is None:
+                    data[col] = default_val
+
             data["findings"] = findings
             return ScanJob(**data)
         finally:
@@ -203,21 +235,21 @@ class SQLiteRepository:
             for r in rows:
                 data = dict(r)
                 data["dimension_scores"] = json.loads(data["dimension_scores"])
-                if isinstance(data.get("unsupported_constructs"), str):
-                    try:
-                        data["unsupported_constructs"] = json.loads(data["unsupported_constructs"])
-                    except Exception:
-                        data["unsupported_constructs"] = []
-                if isinstance(data.get("discovered_resources"), str):
-                    try:
-                        data["discovered_resources"] = json.loads(data["discovered_resources"])
-                    except Exception:
-                        data["discovered_resources"] = []
-                if isinstance(data.get("discovery_summary"), str):
-                    try:
-                        data["discovery_summary"] = json.loads(data["discovery_summary"])
-                    except Exception:
-                        data["discovery_summary"] = {}
+                for col, default_val in [
+                    ("unsupported_constructs", []),
+                    ("discovered_resources", []),
+                    ("discovery_summary", {}),
+                    ("score_explanation", {}),
+                    ("check_statistics", {}),
+                    ("compound_risks", [])
+                ]:
+                    if isinstance(data.get(col), str):
+                        try:
+                            data[col] = json.loads(data[col])
+                        except Exception:
+                            data[col] = default_val
+                    elif data.get(col) is None:
+                        data[col] = default_val
                 data["findings"] = []
                 scans.append(ScanJob(**data))
             return scans
