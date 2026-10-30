@@ -5,6 +5,7 @@ Connects IaC Parser, 7-Dimension Rule Engine, Live Scanner, Repository, and Asyn
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Response, BackgroundTasks
 import uuid
+import re
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
@@ -18,7 +19,7 @@ from ..engine.remediation_comparator import RemediationComparator
 from ..scanner.live_scanner import live_scanner
 from ..reports.exporter import ReportExporter
 from ..db.repository import repository
-from ..db.models import ScanJob
+from ..db.models import ScanJob, Finding
 from ..lambda_handler import process_analysis_job
 from ..ai.bedrock_service import bedrock_service
 from ..aws.cloudwatch_logger import cloudwatch_logger
@@ -772,13 +773,20 @@ def export_remediated_blueprint(scan_id: str, download: bool = Query(default=Fal
         except Exception:
             pass
 
-    corrected_text = job.corrected_content or RemediationEngine.apply_staged_remediations(
-        original_blueprint=original_content,
-        staged_remediations=job.staged_remediations or {},
-        filename=job.target_name
-    )
+    clean_name = re.sub(r'^(?:remediated_)+', '', job.target_name)
+    corrected_filename = f"remediated_{clean_name}"
 
-    corrected_filename = f"remediated_{job.target_name}"
+    if job.corrected_content:
+        corrected_text = job.corrected_content
+    elif job.staged_remediations:
+        corrected_text = RemediationEngine.apply_staged_remediations(
+            original_blueprint=original_content,
+            staged_remediations=job.staged_remediations or {},
+            filename=clean_name
+        )
+    else:
+        corrected_text = original_content or ""
+
     content_bytes = corrected_text.encode("utf-8")
 
     # Store in configured storage layer
@@ -865,7 +873,8 @@ def verify_and_rescan_remediation(scan_id: str):
 
     corrected_bytes = corrected_text.encode("utf-8")
     new_scan_id = f"scan_rem_{uuid.uuid4().hex[:10]}"
-    new_target_name = f"remediated_{job.target_name}"
+    clean_name = re.sub(r'^(?:remediated_)+', '', job.target_name)
+    new_target_name = f"remediated_{clean_name}"
 
     # Store corrected blueprint
     store_res = storage_manager.store_file(
@@ -942,6 +951,42 @@ def verify_and_rescan_remediation(scan_id: str):
 
     job.comparison_data = comparison
     remediated_job.comparison_data = comparison
+    remediated_job.corrected_content = corrected_text
+
+    # Attach verified resolved findings for comprehensive audit visibility
+    display_findings = list(new_findings)
+    for f in job.findings:
+        if f.finding_id in resolved_ids:
+            resolved_copy = Finding(
+                finding_id=f.finding_id,
+                scan_id=new_scan_id,
+                rule_id=f.rule_id,
+                rule_name=f.rule_name,
+                dimension=f.dimension,
+                severity=f.severity,
+                resource_id=f.resource_id,
+                resource_type=f.resource_type,
+                file_name=new_target_name,
+                line_number=f.line_number,
+                confidence=f.confidence,
+                finding_status=f.finding_status,
+                verification_method="RESCAN_VERIFIED",
+                actual_config=f.actual_config,
+                expected_config=f.expected_config,
+                evidence=f.evidence,
+                title=f.title,
+                description=f.description,
+                impact=f.impact,
+                remediation_summary="Remediation applied and verified resolved by AST inspection.",
+                remediation_code=f.remediation_code,
+                cli_command=f.cli_command,
+                remediation_status="Resolved",
+                remediation_history=f.remediation_history,
+                related_resources=f.related_resources
+            )
+            display_findings.append(resolved_copy)
+
+    remediated_job.findings = display_findings
 
     repository.save_scan(job)
     repository.save_scan(remediated_job)

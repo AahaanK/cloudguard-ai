@@ -233,6 +233,19 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshStatusBtn.addEventListener("click", loadHealthAndMetrics);
   loadHealthAndMetrics();
 
+  // Restore persisted active scan from sessionStorage if available
+  const savedScanId = sessionStorage.getItem("cloudguard_active_scan_id");
+  if (savedScanId) {
+    fetch(`/api/v1/scan/${savedScanId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.data) {
+          loadScanIntoDashboard(data.data);
+        }
+      })
+      .catch(e => console.debug("Could not restore saved scan:", e));
+  }
+
   // --- UPLOAD & INGESTION ---
   function formatBytes(bytes) {
     if (!bytes) return "0 Bytes";
@@ -766,6 +779,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadScanIntoDashboard(scan) {
     activeScan = scan;
     allFindings = scan.findings || [];
+    if (scan && scan.scan_id) {
+      sessionStorage.setItem("cloudguard_active_scan_id", scan.scan_id);
+    }
 
     dashTargetSubtitle.textContent = `Target: ${scan.target_name} | Evaluated: ${scan.created_at.slice(0, 19).replace('T', ' ')} UTC`;
     dashOverallScore.textContent = scan.overall_risk_score;
@@ -978,17 +994,33 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "background: #fdf3d8; color: #8c6b12; border: 1px solid rgba(140, 107, 18, 0.2);"
         : "background: #eef4f8; color: #1d5872; border: 1px solid rgba(29, 88, 114, 0.2);";
 
+      const remStatus = f.remediation_status;
+      let statusBadge = "";
+      if (remStatus === "Resolved") {
+        statusBadge = `<span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; display: inline-block; background: #e8f4ec; color: #2d5a27; border: 1px solid rgba(45, 90, 39, 0.25);">✓ RESOLVED</span>`;
+      } else if (remStatus === "Partially Resolved") {
+        statusBadge = `<span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; display: inline-block; background: #fdf3d8; color: #8c6b12; border: 1px solid rgba(140, 107, 18, 0.25);">PARTIAL</span>`;
+      } else if (remStatus === "Verification Failed") {
+        statusBadge = `<span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; display: inline-block; background: #fbeae5; color: #8b0000; border: 1px solid rgba(139, 0, 0, 0.25);">VERIF FAILED</span>`;
+      } else {
+        statusBadge = `<span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; display: inline-block; ${statusStyle}">${status.replace(/_/g, ' ')}</span>`;
+      }
+
+      const isResolved = remStatus === "Resolved";
+      const actionButtons = isResolved
+        ? `<span style="font-size: 11px; font-weight: 600; color: #2d5a27; margin-right: 6px;">✓ Resolved</span><button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px;">Inspect &rarr;</button>`
+        : `<button type="button" class="btn btn-secondary preview-fix-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px; margin-right: 4px;">Preview Fix</button><button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px;">Inspect &rarr;</button>`;
+
       rows += `
-        <tr>
+        <tr ${isResolved ? 'style="opacity: 0.9; background: rgba(45, 90, 39, 0.04);"' : ''}>
           <td><span class="severity-tag ${f.severity}">${f.severity}</span></td>
-          <td><span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; display: inline-block; ${statusStyle}">${status.replace(/_/g, ' ')}</span></td>
+          <td>${statusBadge}</td>
           <td><code style="font-size: 11.5px; padding: 2px 6px; background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: 3px;">${f.rule_id}</code></td>
           <td style="font-weight: 600; color: var(--color-text-main);">${f.title}</td>
           <td><code style="font-size: 11px; color: var(--color-text-secondary);">${f.resource_id}</code></td>
           <td><span style="font-size: 12px; font-weight: 500; color: var(--color-text-secondary);">${f.dimension}</span></td>
           <td style="text-align: center; white-space: nowrap;">
-            <button type="button" class="btn btn-secondary preview-fix-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px; margin-right: 4px;">Preview Fix</button>
-            <button type="button" class="btn btn-secondary inspect-btn" data-id="${f.finding_id}" style="padding: 3px 8px; font-size: 11px;">Inspect &rarr;</button>
+            ${actionButtons}
           </td>
         </tr>
       `;
@@ -1399,8 +1431,12 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(data.detail || "Rescan and verification failed.");
         }
 
-        activeScan = data.original_scan;
-        renderDashboard(activeScan);
+        activeScan = data.remediated_scan;
+        if (activeScan && activeScan.scan_id) {
+          sessionStorage.setItem("cloudguard_active_scan_id", activeScan.scan_id);
+        }
+        loadScanIntoDashboard(activeScan);
+        loadHealthAndMetrics();
         alert(`Rescan complete! Risk score improved from ${data.comparison.score_before} to ${data.comparison.score_after} (${data.comparison.resolved_count} findings resolved).`);
       } catch (err) {
         alert(`Rescan Error: ${err.message}`);

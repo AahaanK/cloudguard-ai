@@ -520,8 +520,8 @@ class RuleEvaluator:
                     except (ValueError, TypeError):
                         pass
 
-                # Fallback check on raw_repr for dynamic blocks
-                if not ssh_open and "0.0.0.0/0" in raw_repr and ("22" in raw_repr or "from_port" in raw_repr):
+                # Fallback check on raw_repr for dynamic blocks (only if ingress_list was not parsed)
+                if not ssh_open and not ingress_list and "0.0.0.0/0" in raw_repr and "22" in raw_repr:
                     ssh_open = True
                     ssh_evidence = "0.0.0.0/0 detected with port 22 in security group configuration"
 
@@ -582,7 +582,7 @@ class RuleEvaluator:
                     except (ValueError, TypeError):
                         pass
 
-                if not rdp_open and "0.0.0.0/0" in raw_repr and "3389" in raw_repr:
+                if not rdp_open and not ingress_list and "0.0.0.0/0" in raw_repr and "3389" in raw_repr:
                     rdp_open = True
 
                 if rdp_open:

@@ -141,16 +141,23 @@ class RemediationEngine:
         # SEC-S3-003: S3 Public Access Block Missing
         # -------------------------------------------------------------
         elif rule_id == "SEC-S3-003":
-            companion_block = (
-                f'\nresource "aws_s3_bucket_public_access_block" "{res_name}_public_access_block" {{\n'
-                f'  bucket                  = {res_type}.{res_name}.id\n'
-                f'  block_public_acls       = true\n'
-                f'  block_public_policy     = true\n'
-                f'  ignore_public_acls      = true\n'
-                f'  restrict_public_buckets = true\n'
-                f'}}'
-            )
-            change_description = f"Attached aws_s3_bucket_public_access_block enforcing 4-point public lock."
+            if "aws_s3_bucket_public_access_block" in res_type:
+                proposed_text = re.sub(r'block_public_acls\s*=\s*false', 'block_public_acls       = true', proposed_text, flags=re.IGNORECASE)
+                proposed_text = re.sub(r'block_public_policy\s*=\s*false', 'block_public_policy     = true', proposed_text, flags=re.IGNORECASE)
+                proposed_text = re.sub(r'ignore_public_acls\s*=\s*false', 'ignore_public_acls      = true', proposed_text, flags=re.IGNORECASE)
+                proposed_text = re.sub(r'restrict_public_buckets\s*=\s*false', 'restrict_public_buckets = true', proposed_text, flags=re.IGNORECASE)
+                change_description = f"Updated existing {res_id} with all 4 public access block protections set to true."
+            else:
+                companion_block = (
+                    f'\nresource "aws_s3_bucket_public_access_block" "{res_name}_public_access_block" {{\n'
+                    f'  bucket                  = {res_type}.{res_name}.id\n'
+                    f'  block_public_acls       = true\n'
+                    f'  block_public_policy     = true\n'
+                    f'  ignore_public_acls      = true\n'
+                    f'  restrict_public_buckets = true\n'
+                    f'}}'
+                )
+                change_description = f"Attached aws_s3_bucket_public_access_block enforcing 4-point public lock."
             explanation = "Missing Public Access Block leaves the bucket susceptible to future misconfigurations or permissive bucket policies."
             security_improvement = "Enforces centralized defense-in-depth against public exposure at the bucket level."
             side_effects = "Any future attempts to grant public access via ACL or policy will be rejected by AWS APIs."
@@ -160,12 +167,20 @@ class RemediationEngine:
         # -------------------------------------------------------------
         elif rule_id == "NET-SG-001":
             if "0.0.0.0/0" in proposed_text:
-                # Replace 0.0.0.0/0 on port 22 with corporate internal subnet
-                proposed_text = re.sub(
-                    r'cidr_blocks\s*=\s*\[\s*["\']0\.0\.0\.0/0["\']\s*\]',
-                    'cidr_blocks = ["10.0.0.0/16"] # Restricted corporate CIDR',
-                    proposed_text
-                )
+                # Target the ingress block on port 22 specifically if possible
+                if re.search(r'22', proposed_text):
+                    proposed_text = re.sub(
+                        r'(from_port\s*=\s*22[\s\S]*?cidr_blocks\s*=\s*\[\s*)["\']0\.0\.0\.0/0["\'](\s*\])',
+                        r'\g<1>"10.0.0.0/16"\g<2>',
+                        proposed_text
+                    )
+                if '10.0.0.0/16' not in proposed_text:
+                    proposed_text = re.sub(
+                        r'cidr_blocks\s*=\s*\[\s*["\']0\.0\.0\.0/0["\']\s*\]',
+                        'cidr_blocks = ["10.0.0.0/16"] # Restricted corporate CIDR',
+                        proposed_text,
+                        count=1
+                    )
                 change_description = "Restricted ingress CIDR from 0.0.0.0/0 to internal subnet 10.0.0.0/16."
             explanation = "SSH port 22 exposed to 0.0.0.0/0 invites automated brute-force attacks, port scans, and credential stuffing."
             security_improvement = "Limits administrative TCP access strictly to authorized internal or VPN address spaces."
@@ -274,8 +289,27 @@ class RemediationEngine:
         # IAM-POL-001: IAM Wildcard Action
         # -------------------------------------------------------------
         elif rule_id == "IAM-POL-001":
-            # Replace Action: "*" with scoped service actions
-            if '"Action": "*"' in proposed_text or '\\"Action\\": \\"*\\"' in proposed_text:
+            # Replace Action: "*" or Action = "*" with scoped service actions
+            iam_action_pattern = r'(\\?\"?Action\\?\"?\s*[:=]\s*)(?:\\?\"\*\\?\"|\[\s*\\?\"\*\\?\"\s*\])'
+            if re.search(iam_action_pattern, proposed_text, re.IGNORECASE):
+                m = re.search(iam_action_pattern, proposed_text, re.IGNORECASE)
+                delimiter_prefix = m.group(1)
+                if ":" in delimiter_prefix and '\\"' in delimiter_prefix:
+                    proposed_text = re.sub(
+                        iam_action_pattern,
+                        r'\g<1>[\"s3:GetObject\", \"s3:ListBucket\"]',
+                        proposed_text,
+                        flags=re.IGNORECASE
+                    )
+                else:
+                    proposed_text = re.sub(
+                        iam_action_pattern,
+                        r'\g<1>["s3:GetObject", "s3:ListBucket"]',
+                        proposed_text,
+                        flags=re.IGNORECASE
+                    )
+                change_description = "Scoped Action: '*' down to specific least-privilege actions (s3:GetObject, s3:ListBucket)."
+            elif '"Action": "*"' in proposed_text or '\\"Action\\": \\"*\\"' in proposed_text:
                 proposed_text = proposed_text.replace('"Action": "*"', '"Action": ["s3:GetObject", "s3:ListBucket"]')
                 proposed_text = proposed_text.replace('\\"Action\\": \\"*\\"', '\\"Action\\": [\\"s3:GetObject\\", \\"s3:ListBucket\\"]')
                 change_description = "Scoped Action: '*' down to specific least-privilege actions (s3:GetObject, s3:ListBucket)."
@@ -472,6 +506,21 @@ class RemediationEngine:
                 security_improvement = "Closes public network route to database."
                 side_effects = "Direct public access to DB is revoked."
 
+            elif rule_id == "IAM-POL-001":
+                target_idx = None
+                for idx in range(b_start - 1, b_end):
+                    if re.search(r'Action\s*:\s*(\*|["\']\*["\'])', lines[idx], re.IGNORECASE):
+                        target_idx = idx
+                        break
+                if target_idx is not None:
+                    start_line = target_idx + 1
+                    end_line = target_idx + 1
+                    orig_text = lines[target_idx]
+                    proposed_snippet = f"{prop_indent}Action:\n{sub_indent}- 's3:GetObject'\n{sub_indent}- 's3:ListBucket'"
+                explanation = "Replaces wildcard Action with scoped read-only S3 actions."
+                security_improvement = "Enforces least privilege by revoking admin wildcard."
+                side_effects = "Callers requiring other AWS permissions must specify them explicitly."
+
             else:
                 proposed_snippet = finding.remediation_code or finding.expected_config or ""
                 explanation = finding.description
@@ -489,6 +538,11 @@ class RemediationEngine:
                 explanation = "Sets PubliclyAccessible to false to isolate database."
                 security_improvement = "Closes public network route to database."
                 side_effects = "Direct public access to DB is revoked."
+            elif rule_id == "IAM-POL-001":
+                proposed_snippet = '"Action": ["s3:GetObject", "s3:ListBucket"]'
+                explanation = "Replaces wildcard Action with scoped read-only S3 actions."
+                security_improvement = "Enforces least privilege by revoking admin wildcard."
+                side_effects = "Callers requiring other AWS permissions must specify them explicitly."
             else:
                 proposed_snippet = finding.remediation_code or finding.expected_config or ""
                 explanation = finding.description
